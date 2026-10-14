@@ -4,3 +4,18 @@
 .inline-field{width:100%;min-width:85px;padding:7px 8px;border:1px solid #4785b5;border-radius:6px;background:#f4faff;color:#152b40;font:inherit;font-size:13px}
 td:has(.inline-field){background:#f0f7ff}td button.secondary{background:#65778b;margin-left:5px}
 #stRows td{min-width:82px}#stRows td:first-child{min-width:115px}#stRows td:last-child{min-width:160px}
+
+.print-document{background:#fff;color:#111;padding:20px;border:1px solid #cbd5df;margin:18px auto;max-width:1200px}
+.print-document header{margin-bottom:12px}.print-document h1{font-size:22px}.print-warning{font-weight:700;font-size:11px;border:1px solid #333;padding:6px}
+.st-sheet{margin:16px 0 26px;break-inside:avoid}.st-print-table{table-layout:fixed;width:100%;font-size:9px;border-collapse:collapse}
+.st-print-table th,.st-print-table td{border:1px solid #333;padding:5px 3px;overflow-wrap:anywhere;vertical-align:top}
+.st-print-table th{background:#e9eef4}.sheet-foot{text-align:right;font-size:10px}
+@media print{
+ @page{size:A4 landscape;margin:10mm}
+ body{background:#fff}body>main>header,main>section,main>footer{display:none!important}
+ main{max-width:none;margin:0;padding:0}
+ #stPrint{display:block!important;border:0;padding:0;margin:0;max-width:none}
+ .print-document h1{font-size:18px}.st-print-table{font-size:8px}
+ .st-sheet{break-after:page}.st-sheet:last-child{break-after:auto}
+ .st-print-table th{background:#eee!important;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+}
