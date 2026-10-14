@@ -734,36 +734,3 @@ $("exportMovements").addEventListener("click",()=>{
  const blob=new Blob(["\ufeff"+[header.map(safe).join(";"),...data].join("\r\n")],{type:"text/csv;charset=utf-8"});
  const link=document.createElement("a");link.href=URL.createObjectURL(blob);link.download="770-movimenti-F24-rettifiche.csv";link.click();setTimeout(()=>URL.revokeObjectURL(link.href),1000);
 });
-
-$("testImport").addEventListener("change",async()=>{
- const file=$("testImport").files[0];if(!file)return;
- try{
-  const data=JSON.parse(await file.text());
-  if(data.format!=="770-autonomi-test-v1"||!taxId(data.taxpayer)||
-     !Array.isArray(data.ledger)||!Array.isArray(data.cu)||!Array.isArray(data.f24))
-    throw Error("File di prova non riconosciuto.");
-  const validLedger=data.ledger.every(r=>typeof r.name==="string"&&/^\d{4}$/.test(r.code)&&Number.isSafeInteger(r.amount)&&/^\d{2}\/\d{2}\/\d{2}$/.test(r.date));
-  const validF24=data.f24.every(r=>/^\d{4}$/.test(r.code)&&/^\d{1,2}\/\d{1,2}\/20\d{2}$/.test(r.date)&&Number.isSafeInteger(r.debit)&&/^\d{4}$/.test(r.year));
-  if(!validLedger||!validF24)throw Error("Movimenti non validi nel file.");
-  const hasExisting=ledgerState.length>0||f24Rows.length>0||f24Manual.length>0;
-  if(hasExisting){
-   const proceed=confirm("ATTENZIONE: il caricamento di questo file sostituirà la lavorazione corrente, comprese tutte le rettifiche e le attribuzioni manuali. Premi Annulla per conservare il lavoro attuale. Vuoi davvero sostituirlo?");
-   if(!proceed){$("status").textContent="Caricamento annullato: lavorazione corrente conservata.";return}
-  }
-  $("taxpayer").value=data.taxpayer;
-  $("year").value=data.year;
-  ledgerState=newLedgerState(data.ledger);
-  ledgerRows=activeLedger(ledgerState,$("year").value);
-  original=aggregate(data.ledger,data.cu);
-  overrides.clear();editingCu=null;editingLedger=null;editingF24=null;
-  f24Rows=cloneF24(data.f24);f24Manual=[];interestOverrides.clear();stDraft=[];
-  $("review").checked=false;$("f24review").checked=false;$("stConfirm").checked=false;
-  $("phase2").hidden=false;$("stSection").hidden=false;
-  $("identity").textContent="Dati di prova caricati localmente: contribuente "+data.taxpayer+
-    ". Verifica sempre il codice fiscale e le rettifiche prima di usare il quadro ST.";
-  $("status").textContent="Prova caricata: "+data.ledger.length+" ritenute gestionali, "+data.cu.length+
-    " CU, "+data.f24.length+" righe F24. I dati non sono stati inviati a GitHub.";
-  $("f24status").textContent="F24 importati dal file locale; puoi modificare, attribuire o escludere i movimenti.";
-  stInvalidate();render();renderLedgerTree();f24Render();
- }catch(error){$("status").textContent="Caricamento prova non riuscito: "+error.message}
-});

@@ -8,7 +8,7 @@ Collaudo 14 ottobre 2026: otto test Node superati; nell'in-app browser verificat
 
 Una sostituzione/ripristino del listato F24 scioglie i collegamenti. Anche l'esclusione del F24 o la variazione del suo periodo/codice scioglie un collegamento incompatibile; riconciliare nuovamente dopo il ripristino. Nessuna duplicazione di importi. I collegamenti restano nella sessione corrente come le altre rettifiche.
 
-Test: `node --test tests/*.test.mjs`. Il test browser opzionale richiede Playwright e Chrome installati, un server locale sulla porta 8765 e `node tests/manual_reconciliation.browser.cjs`. In questa sessione è stato usato il browser integrato perché Chrome non era installato.
+Test: `node --test tests/*.test.mjs`. Il comando di caricamento dei dati sintetici è stato rimosso dall’interfaccia; i casi di prova restano nei test del codice.
 
 ## Filtro anno delle ritenute
 
