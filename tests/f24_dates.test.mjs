@@ -17,3 +17,19 @@ if(draft.rows[0].point14!=="16/6/2025")throw Error("ST14 date missing");
 const invalid={...draft.rows[0],point14:""};
 if(!validateStRow(invalid).some(e=>e.includes("ST14")))throw Error("Missing date should block ST");
 console.log("F24 date inheritance and ST aggregation tests passed");
+
+const normalized=buildStDraft(ledger,[
+ {code:"1040",month:"05",year:"2025",date:"16/6/2025",debit:20000},
+ {code:"1040",month:"05",year:"2025",date:"16/06/2025",debit:30000}
+],2025);
+if(normalized.rows.length!==1||normalized.rows[0].point7!==50000)throw Error("Equivalent date formats must aggregate");
+const differentDates=buildStDraft(ledger,[
+ {code:"1040",month:"05",year:"2025",date:"16/06/2025",debit:20000},
+ {code:"1040",month:"05",year:"2025",date:"17/06/2025",debit:30000}
+],2025);
+if(differentDates.rows.length!==2)throw Error("Different dates must remain separate");
+const differentNotes=buildStDraft(ledger,[
+ {code:"1040",month:"05",year:"2025",date:"16/06/2025",notes:"A",debit:20000},
+ {code:"1040",month:"05",year:"2025",date:"16/06/2025",notes:"B",debit:30000}
+],2025);
+if(differentNotes.rows.length!==2)throw Error("Different ST notes must remain separate");
