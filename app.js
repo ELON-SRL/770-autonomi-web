@@ -77,7 +77,14 @@ function aggregate(ledger,cu){
 }
 function effective(row){return {...row,...(overrides.get(row.name)||{})}}
 function render(){
- const rows=original.map(row=>({...effective(row),key:row.name})),tbody=$("results");tbody.replaceChildren();
+ // I totali gestionali sono SEMPRE derivati dai movimenti attivi: non dal PDF importato immutabile.
+ const totals=new Map();
+ for(const item of ledgerState.filter(x=>!x.excluded)){
+  const key=normalize(item.name);totals.set(key,(totals.get(key)||0)+item.amount);
+ }
+ const rows=original.map(row=>({...effective(row),key:row.name,
+  ledger:overrides.has(row.name)?overrides.get(row.name).ledger:(totals.get(normalize(row.name))||0)})),tbody=$("results");
+ tbody.replaceChildren();
  for(const r of rows){
   const tr=document.createElement("tr");
   const diff=r.ledger-r.cu;
@@ -222,6 +229,8 @@ function invalidateTree(){
  $("f24review").checked=false;
  $("stSection").hidden=true;
  stDraft=[];editingSt=null;stInvalidate();
+ render();
+ renderLedgerTree();
  if(!$("phase2").hidden)f24Render();
 }
 function renderLedgerTree(){
@@ -249,14 +258,14 @@ function renderLedgerTree(){
      period:inputs.period.value.trim(),amount:cents(raw)};
     const errors=validateLedger(proposed);
     if(errors.length){$("status").textContent="Correggi: "+errors.join(", ");return}
-    Object.assign(r,proposed,{edited:true});editingLedger=null;invalidateTree();renderLedgerTree();render();
+    Object.assign(r,proposed,{edited:true});editingLedger=null;invalidateTree();
    });
    const cancel=document.createElement("button");cancel.textContent="Annulla";cancel.className="secondary";
    cancel.addEventListener("click",()=>{editingLedger=null;renderLedgerTree()});td.append(btn,cancel);
   }else{
    btn.textContent="Modifica";btn.addEventListener("click",()=>{editingLedger=r.id;renderLedgerTree()});td.append(btn);
    const toggle=document.createElement("button");toggle.className="secondary";toggle.textContent=r.excluded?"Ripristina":"Elimina";
-   toggle.addEventListener("click",()=>{r.excluded=!r.excluded;invalidateTree();renderLedgerTree();render()});td.append(toggle);
+   toggle.addEventListener("click",()=>{r.excluded=!r.excluded;invalidateTree()});td.append(toggle);
   }
   tr.append(td);body.append(tr);
  }
