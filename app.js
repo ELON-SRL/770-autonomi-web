@@ -293,7 +293,7 @@ function invalidateTree(){
  ledgerRows=activeLedger(ledgerState);
  $("review").checked=false;
  $("f24review").checked=false;
- $("stSection").hidden=true;
+ $("stSection").hidden=false;
  stDraft=[];editingSt=null;stInvalidate();
  render();
  renderLedgerTree();
@@ -525,20 +525,21 @@ $("f24review").addEventListener("change",()=>{
    $("f24review").checked=false;
   }
  }
- $("stSection").hidden=!$("f24review").checked;
+ $("stSection").hidden=false;
  if(!$("f24review").checked)stInvalidate();
 });
 $("makeSt").addEventListener("click",()=>{
- if(!$("f24review").checked){alert("Conferma prima la presa visione delle differenze F24.");return}
- if(overrides.size>0){
-  $("stStatus").textContent="ST sospeso: ci sono rettifiche aggregate nella riconciliazione gestionale/CU che non sono attribuite a specifici mesi. Per evitare duplicazioni o righi fuorvianti (es. 03 e 05), occorre prima attribuire le rettifiche ai movimenti e ai periodi.";
-  stDraft=[];editingSt=null;stInvalidate();stRender();
-  $("stStatus").textContent="ST NON GENERABILE: rettifiche gestionale/CU non ancora attribuite ai singoli periodi. Nessun importo viene duplicato o assegnato automaticamente.";
+ if(!ledgerRows.length){
+  $("stStatus").textContent="Carica prima il listato gestionale e la CU.";
   return;
  }
- const result=buildStDraft(ledgerRows,usableF24([...f24Rows,...f24Manual]),$("year").value,{hasAggregatedCuCorrections:overrides.size>0});
+ const payments=usableF24([...f24Rows,...f24Manual]);
+ const result=buildStDraft(ledgerRows,payments,$("year").value,{hasAggregatedCuCorrections:false});
  stDraft=result.rows;editingSt=null;stInvalidate();stRender();
- if(result.warnings.length)$("stStatus").textContent+=" "+result.warnings.join(" ");
+ $("stSection").hidden=false;
+ $("stStatus").textContent=stDraft.length+" righi ST provvisori generati. "+
+  (result.warnings.length?result.warnings.join("; ")+" ":"")+
+  "Verifica e completa i campi mancanti prima della conferma e della stampa.";
 });
 $("addSt").addEventListener("click",()=>{
  stDraft.push({id:"manual-"+Date.now(),point1:"01/"+$("year").value,point2:null,point6:0,point7:0,point8:0,point9:false,point10:"",point11:"1040",point14:"",point15:"",point16:0,origin:"MANUALE"});
