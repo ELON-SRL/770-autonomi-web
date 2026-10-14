@@ -74,7 +74,7 @@ function aggregate(ledger,cu){
 }
 function effective(row){return {...row,...(overrides.get(row.name)||{})}}
 function render(){
- const rows=original.map(effective),tbody=$("results");tbody.replaceChildren();
+ const rows=original.map(row=>({...effective(row),key:row.name})),tbody=$("results");tbody.replaceChildren();
  for(const r of rows){
   const tr=document.createElement("tr");
   const diff=r.ledger-r.cu;
@@ -83,7 +83,7 @@ function render(){
   }
   tr.children[3].className=diff?"mismatch":"match";
   const td=document.createElement("td"),btn=document.createElement("button");
-  if(editingCu===r.name){
+  if(editingCu===r.key){
    const fields=[["name",r.name],["ledger",display(r.ledger)],["cu",display(r.cu)]],inputs={};
    for(let i=0;i<fields.length;i++){
     const [key,value]=fields[i],input=document.createElement("input");
@@ -95,12 +95,12 @@ function render(){
    btn.textContent="Conferma";btn.addEventListener("click",()=>{
     const name=normalize(inputs.name.value),ledger=cents(inputs.ledger.value),cu=cents(inputs.cu.value);
     if(!name||!Number.isSafeInteger(ledger)||!Number.isSafeInteger(cu)||ledger<0||cu<0){$("status").textContent="Controlla nominativo e importi.";return}
-    overrides.set(r.name,{name,ledger,cu});editingCu=null;$("review").checked=false;render();
+    overrides.set(r.key,{name,ledger,cu});editingCu=null;$("review").checked=false;render();
    });
    const cancel=document.createElement("button");cancel.textContent="Annulla";cancel.className="secondary";
    cancel.addEventListener("click",()=>{editingCu=null;render()});td.append(btn,cancel);
   }else{
-   btn.textContent="Modifica";btn.addEventListener("click",()=>{editingCu=r.name;render()});td.append(btn);
+   btn.textContent="Modifica";btn.addEventListener("click",()=>{editingCu=r.key;render()});td.append(btn);
   }
   tr.append(td);tbody.append(tr);
  }
@@ -143,8 +143,8 @@ $("review").addEventListener("change",render);
 $("reset").addEventListener("click",()=>{overrides.clear();$("review").checked=false;render()});
 $("next").addEventListener("click",()=>{$("phase2").hidden=false;$("phase2").scrollIntoView({behavior:"smooth"})});
 $("export").addEventListener("click",()=>{
- const rows=original.map(effective);
- const csv=["Percipiente;Ritenuta gestionale;Ritenuta CU;Differenza;Rettificata",...rows.map(r=>[r.name,display(r.ledger),display(r.cu),display(r.ledger-r.cu),overrides.has(r.name)?"SI":"NO"].join(";"))].join("\r\n");
+ const rows=original.map(row=>({...effective(row),key:row.name}));
+ const csv=["Percipiente;Ritenuta gestionale;Ritenuta CU;Differenza;Rettificata",...rows.map(r=>[r.name,display(r.ledger),display(r.cu),display(r.ledger-r.cu),overrides.has(r.key)?"SI":"NO"].join(";"))].join("\r\n");
  const blob=new Blob(["\ufeff"+csv],{type:"text/csv;charset=utf-8"});
  const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="770-controllo-cu.csv";a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000);
 });
