@@ -11,7 +11,7 @@ export const euro=n=>(n/100).toLocaleString("it-IT",{minimumFractionDigits:2,max
 const dateRx=/^\d{1,2}\/\d{1,2}\/20\d{2}$/;
 function column(items,lo,hi){return items.filter(t=>t.x>=lo&&t.x<hi).map(t=>t.text).join("").trim()}
 export function parseF24Pages(pages){
- const rows=[],rejected=[];
+ const rows=[],rejected=[],seenSourceRows=new Set();
  let lastDate=null;
  pages.forEach((page,pageIndex)=>{
   // PDF.js item coordinates: transform[5] increases upwards.
@@ -26,7 +26,8 @@ export function parseF24Pages(pages){
   for(const group of groups){
    const ts=group.tokens.sort((a,b)=>a.x-b.x);
    const date=column(ts,35,112);
-   if(dateRx.test(date))lastDate=date;
+   const explicitDate=dateRx.test(date);
+   if(explicitDate)lastDate=date;
    const code=column(ts,115,151);
    if(!/^\d{4}$/.test(code))continue;
    const reference=column(ts,377,420);
@@ -40,7 +41,12 @@ export function parseF24Pages(pages){
     rejected.push({page:pageIndex+1,code,reason:"Importo non riconosciuto"});continue;
    }
    const month=/^(0?[1-9]|1[0-2])$/.test(period)?period.padStart(2,"0"):null;
-   rows.push({date:lastDate,code,month,period,year:reference,debit:value,credit:creditValue,source:"PDF AdE",page:pageIndex+1});
+   // Duplicated PDF text fragments at the same source position are not additional payments.
+   // Never deduplicate by date, tax code and amount: distinct F24 rows may coincide.
+   const sourceRowId=(pageIndex+1)+":"+group.y.toFixed(2)+":"+code;
+   if(seenSourceRows.has(sourceRowId))continue;
+   seenSourceRows.add(sourceRowId);
+   rows.push({date:lastDate,dateInherited:!explicitDate,code,month,period,year:reference,debit:value,credit:creditValue,source:"PDF AdE",page:pageIndex+1,sourceRowId});
   }
  });
  return {rows,rejected};
