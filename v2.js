@@ -54,7 +54,7 @@ function actions(row,collection,inputs,fields,validator){
   button("Conferma",()=>{
    const proposed={...row};
    for(const f of fields){
-    if(f==="excluded")continue;
+    if(f==="excluded"||f==="source"||f==="originalPeriod")continue;
     proposed[f]=f==="amount"||f==="debit"||f==="credit"||["point2","point6","point7","point8"].includes(f)
       ?parseAmount(inputs[f].value):f==="point9"?inputs[f].checked:inputs[f].value.trim();
    }
