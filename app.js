@@ -1,5 +1,5 @@
 "use strict";
-import {parseF24,reconcile,euro as f24Euro,cents as f24Cents} from "./f24.js";
+import {parseF24Pages,reconcile,euro as f24Euro,moneyCents as f24Cents} from "./f24_ade.js";
 import * as pdfjs from "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.10.38/pdf.min.mjs";
 pdfjs.GlobalWorkerOptions.workerSrc="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.10.38/pdf.worker.min.mjs";
 
@@ -144,11 +144,19 @@ $("readf24").addEventListener("click",async()=>{
  if(!file){$("f24status").textContent="Seleziona prima il PDF F24.";return}
  $("readf24").disabled=true;$("f24status").textContent="Lettura F24 in corso…";
  try{
-  const lines=await pdfLines(file);
-  const parsed=parseF24(lines);
-  if(!parsed.rows.length)throw Error("Nessuna riga F24 riconosciuta: formato da calibrare. Nessun importo inventato.");
+  const pdf=await pdfjs.getDocument({data:new Uint8Array(await file.arrayBuffer())}).promise;
+  const pages=[];
+  for(let i=1;i<=pdf.numPages;i++){
+   const p=await pdf.getPage(i),content=await p.getTextContent();
+   pages.push(content.items.map(item=>({text:item.str,x:item.transform[4],y:item.transform[5]})));
+  }
+  const parsed=parseF24Pages(pages);
+  if(!parsed.rows.length)throw Error("Nessuna riga F24 riconosciuta nel PDF Agenzia delle Entrate.");
   f24Rows=parsed.rows;
-  $("f24status").textContent="Righe F24 riconosciute: "+f24Rows.length+"; righe potenzialmente non lette: "+parsed.rejected.length+". Controlla la completezza.";
+  const year=$("year").value;
+  const selected=f24Rows.filter(r=>r.year===year);
+  const missing=selected.filter(r=>!r.month);
+  $("f24status").textContent="PDF AdE: "+pdf.numPages+" pagine; "+f24Rows.length+" righe totali; "+selected.length+" con anno "+year+"; "+missing.length+" senza mese; "+parsed.rejected.length+" righe da verificare. I tributi non pertinenti non sono automaticamente esclusi: confronta solo i codici delle ritenute.";
   f24Render();
  }catch(e){$("f24status").textContent="Errore F24: "+e.message}
  finally{$("readf24").disabled=false}
