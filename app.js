@@ -3,6 +3,12 @@ import * as pdfjs from "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.10.38/pd
 pdfjs.GlobalWorkerOptions.workerSrc="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.10.38/pdf.worker.min.mjs";
 
 const $=id=>document.getElementById(id);
+const selectedIds=["ledger","cu","f24"];
+for(const id of selectedIds){$(id).addEventListener("change",()=>{
+ const names=selectedIds.filter(k=>$(k).files.length).map(k=>$(k).files[0].name);
+ $("status").textContent=names.length+" documento/i selezionato/i. "+( $("ledger").files.length&&$("cu").files.length ? "Avvio automatico della prima riconciliazione…" : "Per la prima riconciliazione servono listato ritenute e brogliaccio CU.");
+ if($("ledger").files.length&&$("cu").files.length)$("check").click();
+});}
 const money=n=>Number(n).toLocaleString("it-IT",{minimumFractionDigits:2,maximumFractionDigits:2});
 const cents=s=>Math.round(Number(String(s).replace(/\./g,"").replace(",","."))*100);
 const display=n=>money(n/100);
@@ -96,7 +102,8 @@ $("check").addEventListener("click",async()=>{
  try{
   const [ledgerLines,cuLines]=await Promise.all([pdfLines(ledgerFile),pdfLines(cuFile,true)]);
   const ledger=parseLedger(ledgerLines),cu=parseCu(cuLines);
-  if(!ledger.length||!cu.length)throw new Error("Nessuna riga riconosciuta in uno dei PDF. Verifica il formato del documento.");
+  console.info("770 import diagnostica (senza nominativi)",{righeGestionale:ledger.length,righeCU:cu.length,righeTestoGestionale:ledgerLines.length,righeTestoCU:cuLines.length});
+  if(!ledger.length||!cu.length)throw new Error(`Formato PDF non riconosciuto (movimenti: ${ledger.length}; CU: ${cu.length}). Serve adattare il lettore al testo estratto; nessun dato è stato riconciliato.`);
   original=aggregate(ledger,cu);overrides.clear();$("review").checked=false;$("phase2").hidden=true;
   $("status").textContent=`Acquisite ${ledger.length} righe gestionali e ${cu.length} righe CU. Verifica i totali prima di confermare.`;
   render();
