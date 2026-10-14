@@ -383,6 +383,12 @@ $("f24review").addEventListener("change",()=>{
 });
 $("makeSt").addEventListener("click",()=>{
  if(!$("f24review").checked){alert("Conferma prima la presa visione delle differenze F24.");return}
+ if(overrides.size>0){
+  $("stStatus").textContent="ST sospeso: ci sono rettifiche aggregate nella riconciliazione gestionale/CU che non sono attribuite a specifici mesi. Per evitare duplicazioni o righi fuorvianti (es. 03 e 05), occorre prima attribuire le rettifiche ai movimenti e ai periodi.";
+  stDraft=[];editingSt=null;stInvalidate();stRender();
+  $("stStatus").textContent="ST NON GENERABILE: rettifiche gestionale/CU non ancora attribuite ai singoli periodi. Nessun importo viene duplicato o assegnato automaticamente.";
+  return;
+ }
  const result=buildStDraft(ledgerRows,usableF24([...f24Rows,...f24Manual]),$("year").value,{hasAggregatedCuCorrections:overrides.size>0});
  stDraft=result.rows;editingSt=null;stInvalidate();stRender();
  if(result.warnings.length)$("stStatus").textContent+=" "+result.warnings.join(" ");
