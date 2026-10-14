@@ -257,7 +257,7 @@ function stEdit(row){
   const initial=["point2","point6","point7","point8","point16"].includes(key)?(changed[key]===null?"":(changed[key]/100).toFixed(2)):key==="point9"?(changed[key]?"S":"N"):String(changed[key]??"");
   const value=prompt(label,initial);
   if(value===null)return;
-  if(["point2","point6","point7","point8"].includes(key)){
+  if(["point2","point6","point7","point8","point16"].includes(key)){
    if(key==="point2"&&!value.trim()){changed[key]=null;continue}
    if(!/^[0-9]+(?:[.,][0-9]{1,2})?$/.test(value.trim())){alert("Importo non valido");return}
    changed[key]=Math.round(Number(value.replace(",","."))*100);
@@ -283,9 +283,9 @@ $("addSt").addEventListener("click",()=>{
 });
 $("stConfirm").addEventListener("change",stRender);
 $("exportSt").addEventListener("click",()=>{
- const fields=["point1","point2","point6","point7","point8","point9","point10","point11","point14"];
+ const fields=["point1","point2","point6","point7","point8","point9","point10","point11","point14","point15","point16"];
  const csv=[["ST1 Periodo","ST2 Ritenute","ST6 Crediti","ST7 Versato","ST8 Interessi","ST9 Ravvedimento","ST10 Note","ST11 Tributo","ST14 Data","ST15 Sospensione","ST16 Importo sospeso"].join(";"),
- ...stDraft.map(row=>fields.map(field=>["point2","point6","point7","point8"].includes(field)?(row[field]===null?"":f24Euro(row[field])):field==="point9"?(row[field]?"1":"0"):row[field]).join(";"))].join("\r\n");
+ ...stDraft.map(row=>fields.map(field=>["point2","point6","point7","point8","point16"].includes(field)?(row[field]===null?"":f24Euro(row[field])):field==="point9"?(row[field]?"1":"0"):row[field]).join(";"))].join("\r\n");
  const blob=new Blob(["\ufeff"+csv],{type:"text/csv;charset=utf-8"});
  const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="770-ST-provvisorio.csv";a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000);
 });
