@@ -231,41 +231,53 @@ $("exportf24").addEventListener("click",()=>{
 function stInvalidate(){
  $("stConfirm").checked=false;$("exportSt").disabled=true;
 }
+const stFields=["point1","point2","point6","point7","point8","point9","point10","point11","point14","point15","point16"];
+const stMoney=new Set(["point2","point6","point7","point8","point16"]);
+let editingSt=null;
 function stRender(){
  const tbody=$("stRows");tbody.replaceChildren();
- const fields=["point1","point2","point6","point7","point8","point9","point10","point11","point14","point15","point16"];
  for(const row of stDraft){
-  const tr=document.createElement("tr");
-  for(const field of fields){
-   const td=document.createElement("td");
-   const v=row[field];
-   td.textContent=field==="point9"?(v?"Sì":"No"):["point2","point6","point7","point8","point16"].includes(field)?(v===null?"Da attribuire":f24Euro(v)):String(v??"");
+  const tr=document.createElement("tr"),active=editingSt===row.id,inputs={};
+  for(const field of stFields){
+   const td=document.createElement("td"),value=row[field];
+   if(active){
+    const input=document.createElement("input");input.type=field==="point9"?"checkbox":"text";
+    if(field==="point9")input.checked=Boolean(value);
+    else input.value=stMoney.has(field)?(value===null?"":(value/100).toFixed(2)):String(value??"");
+    input.className="inline-field";input.setAttribute("aria-label","ST "+field);
+    inputs[field]=input;td.append(input);
+   }else td.textContent=field==="point9"?(value?"Sì":"No"):stMoney.has(field)?(value===null?"Da attribuire":f24Euro(value)):String(value??"");
    tr.append(td);
   }
-  const td=document.createElement("td"),button=document.createElement("button");
-  button.textContent="Modifica";button.addEventListener("click",()=>stEdit(row));
-  td.append(button);tr.append(td);tbody.append(tr);
+  const actions=document.createElement("td"),button=document.createElement("button");
+  if(active){
+   button.textContent="Conferma";
+   button.addEventListener("click",()=>{
+    const changed={...row};
+    for(const field of stFields){
+     if(field==="point9"){changed[field]=inputs[field].checked;continue}
+     const value=inputs[field].value.trim();
+     if(stMoney.has(field)){
+      if(field==="point2"&&!value){changed[field]=null;continue}
+      if(!/^[0-9]+(?:[.,][0-9]{1,2})?$/.test(value)){alert("Importo non valido al punto "+field);return}
+      changed[field]=Math.round(Number(value.replace(",","."))*100);
+      if(!Number.isSafeInteger(changed[field])){alert("Importo fuori limite");return}
+     }else changed[field]=value;
+    }
+    const errors=validateStRow(changed);
+    if(errors.length){$("stStatus").textContent="Correggere: "+errors.join("; ");return}
+    Object.assign(row,changed,{reviewed:true});editingSt=null;stInvalidate();stRender();
+   });
+   const cancel=document.createElement("button");cancel.textContent="Annulla";cancel.className="secondary";
+   cancel.addEventListener("click",()=>{editingSt=null;stRender()});actions.append(button,cancel);
+  }else{
+   button.textContent="Modifica";button.addEventListener("click",()=>{editingSt=row.id;stInvalidate();stRender()});actions.append(button);
+  }
+  tr.append(actions);tbody.append(tr);
  }
  const issues=stDraft.flatMap((r,i)=>validateStRow(r).map(s=>"Rigo "+(i+1)+": "+s));
  $("stStatus").textContent=stDraft.length+" righi provvisori. "+(issues.length?issues.length+" verifiche necessarie: "+issues.slice(0,3).join("; "):"Controlli formali superati; verifica fiscale necessaria.");
- $("exportSt").disabled=!stDraft.length||issues.length>0||!$("stConfirm").checked;
-}
-function stEdit(row){
- const fields=[["point1","Periodo MM/AAAA"],["point2","Ritenute operate €"],["point6","Crediti punto 6 €"],["point7","Versamento punto 7 €"],["point8","Interessi punto 8 €"],["point9","Ravvedimento (S/N)"],["point10","Note punto 10"],["point11","Codice tributo"],["point14","Data versamento"],["point15","Sospensione punto 15"],["point16","Importo sospeso punto 16 €"]];
- const changed={...row};
- for(const [key,label] of fields){
-  const initial=["point2","point6","point7","point8","point16"].includes(key)?(changed[key]===null?"":(changed[key]/100).toFixed(2)):key==="point9"?(changed[key]?"S":"N"):String(changed[key]??"");
-  const value=prompt(label,initial);
-  if(value===null)return;
-  if(["point2","point6","point7","point8","point16"].includes(key)){
-   if(key==="point2"&&!value.trim()){changed[key]=null;continue}
-   if(!/^[0-9]+(?:[.,][0-9]{1,2})?$/.test(value.trim())){alert("Importo non valido");return}
-   changed[key]=Math.round(Number(value.replace(",","."))*100);
-  }else if(key==="point9")changed[key]=value.trim().toUpperCase()==="S";
-  else changed[key]=value.trim();
- }
- Object.assign(row,changed,{reviewed:true});
- stInvalidate();stRender();
+ $("exportSt").disabled=!stDraft.length||issues.length>0||editingSt!==null||!$("stConfirm").checked;
 }
 $("f24review").addEventListener("change",()=>{
  $("stSection").hidden=!$("f24review").checked;
@@ -274,12 +286,12 @@ $("f24review").addEventListener("change",()=>{
 $("makeSt").addEventListener("click",()=>{
  if(!$("f24review").checked){alert("Conferma prima la presa visione delle differenze F24.");return}
  const result=buildStDraft(ledgerRows,[...f24Rows,...f24Manual],$("year").value,{hasAggregatedCuCorrections:overrides.size>0});
- stDraft=result.rows;stInvalidate();stRender();
+ stDraft=result.rows;editingSt=null;stInvalidate();stRender();
  if(result.warnings.length)$("stStatus").textContent+=" "+result.warnings.join(" ");
 });
 $("addSt").addEventListener("click",()=>{
  stDraft.push({id:"manual-"+Date.now(),point1:"01/"+$("year").value,point2:null,point6:0,point7:0,point8:0,point9:false,point10:"",point11:"1040",point14:"",point15:"",point16:0,origin:"MANUALE"});
- stInvalidate();stRender();
+ editingSt=stDraft[stDraft.length-1].id;stInvalidate();stRender();
 });
 $("stConfirm").addEventListener("change",stRender);
 $("exportSt").addEventListener("click",()=>{
