@@ -187,9 +187,29 @@ $("export").addEventListener("click",()=>{
  const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="770-controllo-cu.csv";a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000);
 });
 
+function renderRestore(bodyId,rows,onRestore){
+ const body=$(bodyId),id=bodyId+"Restore";
+ let controls=$(id);
+ if(!controls){controls=document.createElement("div");controls.id=id;controls.className="actions";body.closest("table").parentElement.before(controls)}
+ controls.replaceChildren();
+ const deleted=rows.filter(row=>row.excluded);
+ controls.hidden=!deleted.length;
+ if(!deleted.length)return;
+ const picker=document.createElement("select");picker.setAttribute("aria-label","Righe eliminate "+bodyId);
+ const placeholder=document.createElement("option");placeholder.value="";placeholder.textContent="Ripristina una riga eliminata ("+deleted.length+")";picker.append(placeholder);
+ for(const row of deleted){
+  const option=document.createElement("option");option.value=row.id??row.uid;
+  option.textContent=[row.name,row.point1??row.period??((row.assignedMonth??row.month??"")+"/"+(row.assignedYear??row.year??"")),row.point11??row.code,f24Euro(row.amount??row.point2??row.debit??0)].filter(Boolean).join(" · ");picker.append(option);
+ }
+ const button=document.createElement("button");button.textContent="Ripristina riga";button.disabled=true;
+ picker.onchange=()=>{button.disabled=!picker.value};
+ button.onclick=()=>{const row=deleted.find(row=>(row.id??row.uid)===picker.value);if(row){row.excluded=false;onRestore()}};
+ controls.append(picker,button);
+}
 function renderF24Movements(){
  const body=$("f24movements");body.replaceChildren();
- for(const row of [...f24Rows,...f24Manual]){
+ renderRestore("f24movements",[...f24Rows,...f24Manual],()=>{invalidateAfterF24Change();f24Render()});
+ for(const row of [...f24Rows,...f24Manual].filter(row=>!row.excluded)){
   const tr=document.createElement("tr"),active=editingF24===row.uid,inputs={};
   const fields=["date","code","originalPeriod","assignedPeriod","assignedYear","debit","credit"];
   const values={
@@ -311,7 +331,8 @@ function invalidateTree(){
 }
 function renderLedgerTree(){
  const body=$("ledgerMovements");body.replaceChildren();
- for(const r of ledgerState){
+ renderRestore("ledgerMovements",ledgerState,invalidateTree);
+ for(const r of ledgerState.filter(row=>!row.excluded)){
   const tr=document.createElement("tr"),active=editingLedger===r.id,inputs={};
   if(r.excluded||!inLedgerYear(r,$("year").value))tr.className="excluded-row";
   const fields=["name","code","period","amount"];
@@ -552,7 +573,8 @@ const stMoney=new Set(["point2","point6","point7","point8","point16"]);
 let editingSt=null;
 function stRender(){
  const tbody=$("stRows");tbody.replaceChildren();
- for(const row of stDraft){
+ renderRestore("stRows",stDraft,()=>{stInvalidate();stRender()});
+ for(const row of stDraft.filter(row=>!row.excluded)){
   const tr=document.createElement("tr"),active=editingSt===row.id,inputs={};
   if(row.excluded)tr.className="excluded-row";
   for(const field of stFields){
