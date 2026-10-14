@@ -72,6 +72,8 @@ export function reconcile(ledger,payments,year){
  }
  return [...new Set([...expected.keys(),...paid.keys()])].sort().map(key=>{
   const [code,month,refYear]=key.split("|");
-  return {key,code,month,year:refYear,expected:expected.get(key)||0,paid:paid.get(key)||0,difference:(paid.get(key)||0)-(expected.get(key)||0),payments:detail.get(key)||[]};
+  const hasExpected=expected.has(key),hasPayment=paid.has(key);
+  const status=!hasExpected&&hasPayment?"DA_ATTRIBUIRE":hasExpected&&!hasPayment?"NON_VERSATO":"CONFRONTABILE";
+  return {key,code,month,year:refYear,expected:expected.get(key)||0,paid:paid.get(key)||0,difference:status==="CONFRONTABILE"?(paid.get(key)||0)-(expected.get(key)||0):null,status,payments:detail.get(key)||[]};
  });
 }
