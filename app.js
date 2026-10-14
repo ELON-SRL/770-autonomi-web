@@ -363,6 +363,15 @@ function stRender(){
  $("printControls").hidden=!stDraft.length;
 }
 $("f24review").addEventListener("change",()=>{
+ if($("f24review").checked&&editingF24!==null){
+  $("f24review").checked=false;
+  $("f24status").textContent="Conferma o annulla prima la modifica F24 in corso.";
+ }
+ if($("f24review").checked&&$("f24Audit").hidden===false){
+  if(!confirm("Sono presenti possibili duplicati tra F24 manuali e listato ricaricato. Hai verificato ogni corrispondenza?")){
+   $("f24review").checked=false;
+  }
+ }
  $("stSection").hidden=!$("f24review").checked;
  if(!$("f24review").checked)stInvalidate();
 });
