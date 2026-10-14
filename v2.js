@@ -176,10 +176,15 @@ $("import").onclick=async()=>{
  $("import").disabled=true;$("importStatus").textContent="Importazione in corso…";
  try{
   const [l,c,f]=await Promise.all([pdf(lf),pdf(cf,true),pdf(ff)]);
+  const identityWarnings=[];
   for(const [label,doc] of [["Gestionale",l],["CU",c],["F24",f]]){
    const ids=identify(doc.lines);
-   if(ids.length&&!ids.includes(id))throw Error(label+": identificativo contribuente diverso");
-   if(!ids.length&&!confirm(label+": codice fiscale non leggibile. Confermi il contribuente?"))throw Error("Identità non confermata");
+   if(ids.length&&!ids.includes(id)){
+    // The PDFs may contain recipient or intermediary identifiers, not the declarant.
+    identityWarnings.push(label+": identificativo differente rilevato, verifica il sostituto");
+   }else if(!ids.length){
+    identityWarnings.push(label+": identificativo del sostituto non riconosciuto");
+   }
   }
   const withholdings=parseLedger(l.lines),cu=parseCU(c.lines),f24=parseF24Pages(f.pages);
   if(!withholdings.length||!f24.rows.length)throw Error("Formato non riconosciuto. Nessun dato sostituito.");
@@ -187,7 +192,7 @@ $("import").onclick=async()=>{
    original:{period:(p.month||"00")+"/"+p.year,date:p.date,code:p.code,debit:p.debit,credit:p.credit},
    debit:p.debit,credit:p.credit,source:"AdE",excluded:false})),cu,st:[],year:$("year").value,taxpayer:id};
   baseline=clone(state);editing=null;render();
-  $("importStatus").textContent=withholdings.length+" ritenute; "+cu.length+" CU; "+f24.rows.length+" righe F24. Righe F24 non riconosciute: "+f24.rejected.length+". Verifica i totali.";
+  $("importStatus").textContent=withholdings.length+" ritenute; "+cu.length+" CU; "+f24.rows.length+" righe F24. Righe F24 non riconosciute: "+f24.rejected.length+". "+(identityWarnings.length?"Controllo identificativi: "+identityWarnings.join("; ")+". ":"")+"Verifica contribuente e totali prima di usare ST.";
  }catch(e){$("importStatus").textContent="Importazione non completata: "+e.message}
  finally{$("import").disabled=false}
 };
