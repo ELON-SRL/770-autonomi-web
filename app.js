@@ -1,4 +1,5 @@
 "use strict";
+import {buildStDraft,validateStRow} from "./st_draft.js";
 import {taxId,identify,verify} from "./identita.js";
 import {ravvedimentoGroups} from "./ravvedimenti.js";
 import {parseF24Pages,reconcile,euro as f24Euro,moneyCents as f24Cents} from "./f24_ade.js";
@@ -16,7 +17,7 @@ const money=n=>Number(n).toLocaleString("it-IT",{minimumFractionDigits:2,maximum
 const cents=s=>Math.round(Number(String(s).replace(/\./g,"").replace(",","."))*100);
 const display=n=>money(n/100);
 const normalize=s=>String(s).toUpperCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/\s+/g," ").trim();
-let original=[],overrides=new Map(),parseIssues=[],ledgerRows=[],f24Rows=[],f24Manual=[],interestOverrides=new Map();
+let original=[],overrides=new Map(),parseIssues=[],ledgerRows=[],f24Rows=[],f24Manual=[],interestOverrides=new Map(),stDraft=[];
 function lineText(items){
  const groups=[];
  for(const item of items){
@@ -225,4 +226,66 @@ $("exportf24").addEventListener("click",()=>{
  const csv=["Tributo;Periodo;Ritenute;Versato;Differenza lorda;Interessi ipotizzati;Residuo;Numero F24",...rows.map(r=>{const interest=interestOverrides.has(r.key)?interestOverrides.get(r.key):Math.max(0,r.difference);return [r.code,r.month+"/"+r.year,f24Euro(r.expected),f24Euro(r.paid),f24Euro(r.difference),f24Euro(interest),f24Euro(r.difference-interest),r.payments.length].join(";")})].join("\r\n");
  const blob=new Blob(["\ufeff"+csv],{type:"text/csv;charset=utf-8"});
  const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="770-quadratura-f24.csv";a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000);
+});
+
+function stInvalidate(){
+ $("stConfirm").checked=false;$("exportSt").disabled=true;
+}
+function stRender(){
+ const tbody=$("stRows");tbody.replaceChildren();
+ const fields=["point1","point2","point6","point7","point8","point9","point10","point11","point14"];
+ for(const row of stDraft){
+  const tr=document.createElement("tr");
+  for(const field of fields){
+   const td=document.createElement("td");
+   const v=row[field];
+   td.textContent=field==="point9"?(v?"Sì":"No"):["point2","point6","point7","point8"].includes(field)?(v===null?"Da attribuire":f24Euro(v)):String(v??"");
+   tr.append(td);
+  }
+  const td=document.createElement("td"),button=document.createElement("button");
+  button.textContent="Modifica";button.addEventListener("click",()=>stEdit(row));
+  td.append(button);tr.append(td);tbody.append(tr);
+ }
+ const issues=stDraft.flatMap((r,i)=>validateStRow(r).map(s=>"Rigo "+(i+1)+": "+s));
+ $("stStatus").textContent=stDraft.length+" righi provvisori. "+(issues.length?issues.length+" verifiche necessarie: "+issues.slice(0,3).join("; "):"Controlli formali superati; verifica fiscale necessaria.");
+ $("exportSt").disabled=!stDraft.length||issues.length>0||!$("stConfirm").checked;
+}
+function stEdit(row){
+ const fields=[["point1","Periodo MM/AAAA"],["point2","Ritenute operate €"],["point6","Crediti punto 6 €"],["point7","Versamento punto 7 €"],["point8","Interessi punto 8 €"],["point9","Ravvedimento (S/N)"],["point10","Note punto 10"],["point11","Codice tributo"],["point14","Data versamento"]];
+ const changed={...row};
+ for(const [key,label] of fields){
+  const initial=["point2","point6","point7","point8"].includes(key)?(changed[key]===null?"":(changed[key]/100).toFixed(2)):key==="point9"?(changed[key]?"S":"N"):String(changed[key]??"");
+  const value=prompt(label,initial);
+  if(value===null)return;
+  if(["point2","point6","point7","point8"].includes(key)){
+   if(key==="point2"&&!value.trim()){changed[key]=null;continue}
+   if(!/^[0-9]+(?:[.,][0-9]{1,2})?$/.test(value.trim())){alert("Importo non valido");return}
+   changed[key]=Math.round(Number(value.replace(",","."))*100);
+  }else if(key==="point9")changed[key]=value.trim().toUpperCase()==="S";
+  else changed[key]=value.trim();
+ }
+ Object.assign(row,changed,{reviewed:true});
+ stInvalidate();stRender();
+}
+$("f24review").addEventListener("change",()=>{
+ $("stSection").hidden=!$("f24review").checked;
+ if(!$("f24review").checked)stInvalidate();
+});
+$("makeSt").addEventListener("click",()=>{
+ if(!$("f24review").checked){alert("Conferma prima la presa visione delle differenze F24.");return}
+ const result=buildStDraft(ledgerRows,[...f24Rows,...f24Manual],$("year").value,{hasAggregatedCuCorrections:overrides.size>0});
+ stDraft=result.rows;stInvalidate();stRender();
+ if(result.warnings.length)$("stStatus").textContent+=" "+result.warnings.join(" ");
+});
+$("addSt").addEventListener("click",()=>{
+ stDraft.push({id:"manual-"+Date.now(),point1:"01/"+$("year").value,point2:null,point6:0,point7:0,point8:0,point9:false,point10:"",point11:"1040",point14:"",origin:"MANUALE"});
+ stInvalidate();stRender();
+});
+$("stConfirm").addEventListener("change",stRender);
+$("exportSt").addEventListener("click",()=>{
+ const fields=["point1","point2","point6","point7","point8","point9","point10","point11","point14"];
+ const csv=[["ST1 Periodo","ST2 Ritenute","ST6 Crediti","ST7 Versato","ST8 Interessi","ST9 Ravvedimento","ST10 Note","ST11 Tributo","ST14 Data"].join(";"),
+ ...stDraft.map(row=>fields.map(field=>["point2","point6","point7","point8"].includes(field)?(row[field]===null?"":f24Euro(row[field])):field==="point9"?(row[field]?"1":"0"):row[field]).join(";"))].join("\r\n");
+ const blob=new Blob(["\ufeff"+csv],{type:"text/csv;charset=utf-8"});
+ const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="770-ST-provvisorio.csv";a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000);
 });
