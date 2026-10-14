@@ -61,7 +61,7 @@ function actions(row,collection,inputs,fields,validator){
    const error=validator(proposed);
    if(error){$("balanceStatus").textContent=error;return}
    Object.assign(row,proposed);editing=null;
-   if(collection!=="st")invalidate();
+   if(collection!=="st")invalidate();else $("stApproved").checked=false;
    render();
   });
   button("Annulla",()=>{editing=null;render()});
@@ -69,7 +69,7 @@ function actions(row,collection,inputs,fields,validator){
   button("Modifica",()=>{editing=row.id;render()});
   button(row.excluded?"Ripristina":"Elimina",()=>{
    row.excluded=!row.excluded;editing=null;
-   if(collection!=="st")invalidate();
+   if(collection!=="st")invalidate();else $("stApproved").checked=false;
    render();
   });
  }
@@ -102,6 +102,20 @@ function balance(){
  for(const r of state.payments.filter(r=>!r.excluded&&r.code!=="8948"))get(r.code,r.period).paid+=r.debit;
  return [...map.values()].sort((a,b)=>a.period.localeCompare(b.period)||a.code.localeCompare(b.code));
 }
+function renderCu(){
+ const body=$("cuComparison");body.replaceChildren();
+ const map=new Map();
+ const get=name=>{const key=norm(name);if(!map.has(key))map.set(key,{name:key,ledger:0,cu:0});return map.get(key)};
+ for(const r of state.withholdings.filter(x=>!x.excluded))get(r.name).ledger+=r.amount;
+ for(const r of state.cu)get(r.name).cu+=r.amount;
+ for(const r of map.values()){
+  const tr=document.createElement("tr");
+  for(const value of [r.name,fmt(r.ledger),fmt(r.cu),fmt(r.ledger-r.cu)]){
+   const td=document.createElement("td");td.textContent=value;tr.append(td);
+  }
+  body.append(tr);
+ }
+}
 function renderBalance(){
  const body=$("balanceRows");body.replaceChildren();
  const rows=balance();
@@ -120,7 +134,7 @@ function renderSt(){
 function render(){
  renderRows("withholdingRows",state.withholdings,"withholdings",["name","code","period","amount","source"],view,validW);
  renderRows("paymentRows",state.payments,"payments",["date","code","originalPeriod","period","debit","credit","source"],view,validP);
- renderBalance();renderSt();
+ renderCu();renderBalance();renderSt();
 }
 $("import").onclick=async()=>{
  const lf=$("ledgerFile").files[0],cf=$("cuFile").files[0],ff=$("f24File").files[0];
