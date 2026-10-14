@@ -1,6 +1,7 @@
 "use strict";
 import * as pdfjs from "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.10.38/pdf.min.mjs";
 import {parseF24Pages} from "./f24_ade.js";
+import {summaries,changeSummary,excludeSummary} from "./summary_editor.js";
 import {buildStDraft,validateStRow} from "./st_draft.js";
 import {taxId,identify} from "./identita.js";
 pdfjs.GlobalWorkerOptions.workerSrc="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.10.38/pdf.worker.min.mjs";
@@ -96,36 +97,44 @@ const view=(r,f)=>f==="originalPeriod"?(r.original?.period||r.period):amountFiel
 const validW=r=>!r.name||!/^\d{4}$/.test(r.code)||!period(r.period)||!Number.isSafeInteger(r.amount)?"Controlla percipiente, codice, periodo e importo.":"";
 const validP=r=>!/^\d{1,2}\/\d{1,2}\/20\d{2}$/.test(r.date)||!/^\d{4}$/.test(r.code)||!period(r.period)||!Number.isSafeInteger(r.debit)||!Number.isSafeInteger(r.credit)?"Controlla data, tributo, periodo e importi.":"";
 const validS=r=>{const errors=validateStRow(r);return errors.join("; ")};
-function balance(){
- const map=new Map(),get=(code,p)=>{const k=code+"|"+p;if(!map.has(k))map.set(k,{code,period:p,withheld:0,paid:0});return map.get(k)};
- for(const r of state.withholdings.filter(r=>!r.excluded))get(r.code,r.period).withheld+=r.amount;
- for(const r of state.payments.filter(r=>!r.excluded&&r.code!=="8948"))get(r.code,r.period).paid+=r.debit;
- return [...map.values()].sort((a,b)=>a.period.localeCompare(b.period)||a.code.localeCompare(b.code));
-}
-function renderCu(){
- const body=$("cuComparison");body.replaceChildren();
- const map=new Map();
- const get=name=>{const key=norm(name);if(!map.has(key))map.set(key,{name:key,ledger:0,cu:0});return map.get(key)};
- for(const r of state.withholdings.filter(x=>!x.excluded))get(r.name).ledger+=r.amount;
- for(const r of state.cu)get(r.name).cu+=r.amount;
- for(const r of map.values()){
-  const tr=document.createElement("tr");
-  for(const value of [r.name,fmt(r.ledger),fmt(r.cu),fmt(r.ledger-r.cu)]){
-   const td=document.createElement("td");td.textContent=value;tr.append(td);
-  }
-  body.append(tr);
- }
-}
+let editingBalance=null;
+function balance(){return summaries(state.withholdings,state.payments)}
 function renderBalance(){
  const body=$("balanceRows");body.replaceChildren();
  const rows=balance();
  for(const r of rows){
-  const tr=document.createElement("tr");
-  const status=r.withheld===r.paid?"Quadrato":!r.withheld?"F24 da attribuire":!r.paid?"Ritenuta non versata":"Differenza "+fmt(r.paid-r.withheld);
-  for(const val of [r.code,r.period,fmt(r.withheld),fmt(r.paid),status]){const td=document.createElement("td");td.textContent=val;tr.append(td)}
-  body.append(tr);
+  const tr=document.createElement("tr"),active=editingBalance===r.key,inputs={};
+  const vals={code:r.code,period:r.period,withheld:fmt(r.withheld),paid:fmt(r.paid)};
+  for(const key of ["code","period","withheld","paid"]){
+   const td=document.createElement("td");
+   if(active){const input=field(vals[key]);input.className="inline-field";inputs[key]=input;td.append(input)}
+   else td.textContent=vals[key];
+   tr.append(td);
+  }
+  const result=document.createElement("td");
+  result.textContent=active?"In modifica":r.withheld===r.paid?"Quadrato":!r.withheld?"F24 da attribuire":!r.paid?"Ritenuta non versata":"Differenza "+fmt(r.paid-r.withheld);
+  tr.append(result);
+  const actions=document.createElement("td");
+  const addButton=(label,callback)=>{
+   const button=document.createElement("button");button.textContent=label;button.onclick=callback;actions.append(button);
+  };
+  if(active){
+   addButton("Conferma",()=>{
+    const proposed={code:inputs.code.value.trim(),period:inputs.period.value.trim(),withheld:parseAmount(inputs.withheld.value),paid:parseAmount(inputs.paid.value)};
+    const result=changeSummary(state,r.key,proposed);
+    if(!result.ok){$("balanceStatus").textContent=result.error;return}
+    editingBalance=null;invalidate();render();
+   });
+   addButton("Annulla",()=>{editingBalance=null;render()});
+  }else{
+   addButton("Modifica",()=>{editingBalance=r.key;render()});
+   addButton("Elimina",()=>{
+    excludeSummary(state,r.key);editingBalance=null;invalidate();render();
+   });
+  }
+  tr.append(actions);body.append(tr);
  }
- $("balanceStatus").textContent=rows.length+" periodi · "+rows.filter(r=>r.withheld!==r.paid).length+" da verificare. I movimenti esclusi non partecipano ai totali.";
+ $("balanceStatus").textContent=rows.length+" periodi · "+rows.filter(r=>r.withheld!==r.paid).length+" con differenze. Modifica ed Elimina agiscono sui movimenti di lavoro, senza duplicarli. Per ripristinare usa il pulsante generale o Ripristina sui movimenti.";
 }
 function renderSt(){
  renderRows("stRows",state.st,"st",["point1","point2","point6","point7","point8","point9","point10","point11","point14"],view,validS);
