@@ -1,4 +1,5 @@
 "use strict";
+import {cloneF24,usableF24,validateF24Change,parseEuros} from "./movement_edits.js";
 import {buildStDraft,validateStRow} from "./st_draft.js";
 import {taxId,identify,verify} from "./identita.js";
 import {ravvedimentoGroups} from "./ravvedimenti.js";
@@ -17,7 +18,7 @@ const money=n=>Number(n).toLocaleString("it-IT",{minimumFractionDigits:2,maximum
 const cents=s=>Math.round(Number(String(s).replace(/\./g,"").replace(",","."))*100);
 const display=n=>money(n/100);
 const normalize=s=>String(s).toUpperCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/\s+/g," ").trim();
-let original=[],overrides=new Map(),parseIssues=[],ledgerRows=[],f24Rows=[],f24Manual=[],interestOverrides=new Map(),stDraft=[],editingCu=null;
+let original=[],overrides=new Map(),parseIssues=[],ledgerRows=[],f24Rows=[],f24Manual=[],interestOverrides=new Map(),stDraft=[],editingCu=null,editingF24=null;
 function lineText(items){
  const groups=[];
  for(const item of items){
@@ -71,7 +72,7 @@ function aggregate(ledger,cu){
  cu.forEach(r=>add(r.name,"cu",r.amount));
  return [...map.values()].sort((a,b)=>a.name.localeCompare(b.name,"it"));
 }
-function effective(row){return {...row,ledger:overrides.get(row.name)??row.ledger}}
+function effective(row){return {...row,...(overrides.get(row.name)||{})}}
 function render(){
  const rows=original.map(effective),tbody=$("results");tbody.replaceChildren();
  for(const r of rows){
@@ -83,17 +84,21 @@ function render(){
   tr.children[3].className=diff?"mismatch":"match";
   const td=document.createElement("td"),btn=document.createElement("button");
   if(editingCu===r.name){
-   const input=document.createElement("input");input.type="text";input.value=display(r.ledger);input.className="inline-field";input.setAttribute("aria-label","Ritenuta "+r.name);
-   tr.children[1].replaceChildren(input);
+   const fields=[["name",r.name],["ledger",display(r.ledger)],["cu",display(r.cu)]],inputs={};
+   for(let i=0;i<fields.length;i++){
+    const [key,value]=fields[i],input=document.createElement("input");
+    input.type="text";input.value=value;input.className="inline-field";
+    input.setAttribute("aria-label",key+" "+r.name);inputs[key]=input;
+    tr.children[i].replaceChildren(input);
+   }
+   tr.children[3].textContent="Calcolata";
    btn.textContent="Conferma";btn.addEventListener("click",()=>{
-    const value=input.value.trim();
-    if(!/^[0-9]+(?:[.][0-9]{3})*(?:,[0-9]{1,2})?$/.test(value)){alert("Importo non valido");return}
-    const amount=cents(value);
-    if(!Number.isSafeInteger(amount)||amount<0){alert("Importo non valido");return}
-    overrides.set(r.name,amount);editingCu=null;$("review").checked=false;render();
+    const name=normalize(inputs.name.value),ledger=cents(inputs.ledger.value),cu=cents(inputs.cu.value);
+    if(!name||!Number.isSafeInteger(ledger)||!Number.isSafeInteger(cu)||ledger<0||cu<0){$("status").textContent="Controlla nominativo e importi.";return}
+    overrides.set(r.name,{name,ledger,cu});editingCu=null;$("review").checked=false;render();
    });
-   const cancel=document.createElement("button");cancel.textContent="Annulla";cancel.className="secondary";cancel.addEventListener("click",()=>{editingCu=null;render()});
-   td.append(btn,cancel);
+   const cancel=document.createElement("button");cancel.textContent="Annulla";cancel.className="secondary";
+   cancel.addEventListener("click",()=>{editingCu=null;render()});td.append(btn,cancel);
   }else{
    btn.textContent="Modifica";btn.addEventListener("click",()=>{editingCu=r.name;render()});td.append(btn);
   }
