@@ -149,9 +149,61 @@ $("export").addEventListener("click",()=>{
  const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="770-controllo-cu.csv";a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000);
 });
 
+function renderF24Movements(){
+ const body=$("f24movements");body.replaceChildren();
+ for(const row of [...f24Rows,...f24Manual]){
+  const tr=document.createElement("tr"),active=editingF24===row.uid,inputs={};
+  const fields=["date","code","originalPeriod","assignedPeriod","assignedYear","debit","credit"];
+  const values={
+   date:row.date,code:row.code,
+   originalPeriod:(row.original?.month??row.month??row.period??"")+"/"+(row.original?.year??row.year),
+   assignedPeriod:row.assignedMonth??row.month??"",
+   assignedYear:row.assignedYear??row.year,
+   debit:(row.debit/100).toFixed(2),credit:(row.credit/100).toFixed(2)
+  };
+  for(const field of fields){
+   const td=document.createElement("td");
+   if(active&&field!=="originalPeriod"){
+    const input=document.createElement("input");input.type="text";input.value=values[field];
+    input.className="inline-field";input.setAttribute("aria-label",field+" "+row.uid);
+    inputs[field]=input;td.append(input);
+   }else td.textContent=values[field];
+   tr.append(td);
+  }
+  if(row.excluded)tr.className="excluded-row";
+  const actions=document.createElement("td"),btn=document.createElement("button");
+  if(active){
+   btn.textContent="Conferma";btn.addEventListener("click",()=>{
+    const updated={...row,date:inputs.date.value.trim(),code:inputs.code.value.trim(),
+     assignedMonth:inputs.assignedPeriod.value.trim().padStart(2,"0"),
+     assignedYear:inputs.assignedYear.value.trim(),
+     debit:parseEuros(inputs.debit.value),credit:parseEuros(inputs.credit.value)};
+    const errors=validateF24Change(updated);
+    if(errors.length){$("f24status").textContent="Controlla: "+errors.join(", ");return}
+    Object.assign(row,updated,{edited:true});editingF24=null;invalidateAfterF24Change();f24Render();
+   });
+   const cancel=document.createElement("button");cancel.textContent="Annulla";cancel.className="secondary";
+   cancel.addEventListener("click",()=>{editingF24=null;renderF24Movements()});actions.append(btn,cancel);
+  }else{
+   btn.textContent="Modifica";btn.addEventListener("click",()=>{editingF24=row.uid;renderF24Movements()});actions.append(btn);
+   const exclude=document.createElement("button");exclude.className="secondary";
+   exclude.textContent=row.excluded?"Ripristina":"Escludi";
+   exclude.addEventListener("click",()=>{
+    row.excluded=!row.excluded;row.edited=true;invalidateAfterF24Change();f24Render();
+   });actions.append(exclude);
+  }
+  tr.append(actions);body.append(tr);
+ }
+}
+function invalidateAfterF24Change(){
+ $("f24review").checked=false;$("stSection").hidden=true;
+ stDraft=[];stInvalidate();
+ $("f24status").textContent="Movimenti modificati. Riconciliazione ricalcolata; quadro ST precedente invalidato.";
+}
 function f24Render(){
+ renderF24Movements();
  const tbody=$("f24rows");tbody.replaceChildren();
- const year=$("year").value,rows=reconcile(ledgerRows,[...f24Rows,...f24Manual],year);
+ const year=$("year").value,rows=reconcile(ledgerRows,usableF24([...f24Rows,...f24Manual]),year);
  for(const r of rows){
   const tr=document.createElement("tr");
   for(const value of [r.code,r.month+"/"+r.year,f24Euro(r.expected),f24Euro(r.paid),f24Euro(r.difference)]){
@@ -202,7 +254,7 @@ $("readf24").addEventListener("click",async()=>{
   if(!idsF24.length&&!confirm("Identificativo del contribuente non leggibile nel PDF F24. Hai verificato manualmente che sia quello corretto?"))throw Error("Verifica contribuente F24 non confermata.");
   const parsed=parseF24Pages(pages);
   if(!parsed.rows.length)throw Error("Nessuna riga F24 riconosciuta nel PDF Agenzia delle Entrate.");
-  f24Rows=parsed.rows;
+  f24Rows=cloneF24(parsed.rows);editingF24=null;
   const year=$("year").value;
   const selected=f24Rows.filter(r=>r.year===year);
   const missing=selected.filter(r=>!r.month);
@@ -230,12 +282,12 @@ $("addf24").addEventListener("click",()=>{
  if(!/^\d{2}\/\d{2}\/20\d{2}$/.test(date)){alert("Data non valida");return}
  const value=prompt("Importo a debito (€)","0,00");if(value===null)return;
  const debit=f24Cents(value);if(!Number.isFinite(debit)||debit<0){alert("Importo non valido");return}
- f24Manual.push({code,month:match[1],year:match[2],date,debit,credit:0,source:"MANUALE"});
+ f24Manual.push({uid:"manual-"+Date.now(),code,month:match[1],year:match[2],assignedMonth:match[1],assignedYear:match[2],date,debit,credit:0,source:"MANUALE",excluded:false,edited:true});
  $("f24status").textContent="Inserimento manuale registrato per la sessione (non verificato con quietanza).";
  f24Render();
 });
 $("exportf24").addEventListener("click",()=>{
- const rows=reconcile(ledgerRows,[...f24Rows,...f24Manual],$("year").value);
+ const rows=reconcile(ledgerRows,usableF24([...f24Rows,...f24Manual]),$("year").value);
  const csv=["Tributo;Periodo;Ritenute;Versato;Differenza lorda;Interessi ipotizzati;Residuo;Numero F24",...rows.map(r=>{const interest=interestOverrides.has(r.key)?interestOverrides.get(r.key):Math.max(0,r.difference);return [r.code,r.month+"/"+r.year,f24Euro(r.expected),f24Euro(r.paid),f24Euro(r.difference),f24Euro(interest),f24Euro(r.difference-interest),r.payments.length].join(";")})].join("\r\n");
  const blob=new Blob(["\ufeff"+csv],{type:"text/csv;charset=utf-8"});
  const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="770-quadratura-f24.csv";a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000);
@@ -300,7 +352,7 @@ $("f24review").addEventListener("change",()=>{
 });
 $("makeSt").addEventListener("click",()=>{
  if(!$("f24review").checked){alert("Conferma prima la presa visione delle differenze F24.");return}
- const result=buildStDraft(ledgerRows,[...f24Rows,...f24Manual],$("year").value,{hasAggregatedCuCorrections:overrides.size>0});
+ const result=buildStDraft(ledgerRows,usableF24([...f24Rows,...f24Manual]),$("year").value,{hasAggregatedCuCorrections:overrides.size>0});
  stDraft=result.rows;editingSt=null;stInvalidate();stRender();
  if(result.warnings.length)$("stStatus").textContent+=" "+result.warnings.join(" ");
 });
