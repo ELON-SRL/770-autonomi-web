@@ -3,7 +3,7 @@ import {link,unlink,syncLinks} from "./manual_reconciliation.js?v=20261014-year"
 import {cloneF24,usableF24,validateF24Change,parseEuros} from "./movement_edits.js";
 import {newLedgerState,activeLedger,ledgerSummary,validateLedger,inLedgerYear} from "./ledger_tree.js?v=20261014-year";
 import {paymentGroupSummary} from "./f24_groups.js";
-import {buildStDraft,validateStRow} from "./st_draft.js?v=20261014-st";
+import {buildStDraft,validateStRow} from "./st_draft.js?v=20261014-st2";
 import {taxId,identify,identifyDetailed,verify} from "./identita.js";
 import {ravvedimentoGroups} from "./ravvedimenti.js";
 import {parseF24Pages,reconcile,euro as f24Euro,moneyCents as f24Cents} from "./f24_ade.js";
@@ -494,6 +494,7 @@ $("readf24").addEventListener("click",async()=>{
   if(!expectedId)throw Error("Indica prima il contribuente.");
   if(idsF24.length&&!idsF24.includes(expectedId))throw Error("Il listato F24 appartiene a un contribuente diverso. Importazione bloccata.");
   if(!idsF24.length&&!confirm("Identificativo del contribuente non leggibile nel PDF F24. Hai verificato manualmente che sia quello corretto?"))throw Error("Verifica contribuente F24 non confermata.");
+  if(/RITENUTE\s+MATURATE\s+DA\s+VERSARE/i.test(flat.join(" ")))throw Error("Il file selezionato è un listato ritenute gestionali, non un listato F24. Seleziona il PDF dei versamenti Agenzia delle Entrate.");
   const parsed=parseF24Pages(pages);
   if(!parsed.rows.length)throw Error("Nessuna riga F24 riconosciuta nel PDF Agenzia delle Entrate.");
   // La sostituzione è atomica: nessun dato precedente viene modificato se l'utente annulla.

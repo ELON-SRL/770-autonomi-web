@@ -29,27 +29,35 @@ export function buildStDraft(ledger,payments,year,options={}){
   if(!groups.has(key))groups.set(key,{key,code:p.code,month:p.month,year:y,date,notes,amount:0,payments:[]});
   const group=groups.get(key);group.amount+=p.debit;group.payments.push(p);
  }
- // Penalties identify a proposed ravvedimento; they never add to ST7.
+ // Detect evidence first, then allocate a period interest proposal to a single
+ // identifiable ravvedimento date. Penalties never add to ST7.
  for(const g of groups.values()){
-  const penalties=payments.filter(p=>!p.excluded&&p.code==="8948"&&p.year===y&&p.month===g.month&&canonicalPaymentDate(p.date)===g.date);
-  g.ravvedimento=g.code==="1040"&&penalties.some(p=>p.debit>0);
+  g.ravvedimento=g.code==="1040"&&payments.some(p=>!p.excluded&&p.code==="8948"&&p.year===y&&p.month===g.month&&canonicalPaymentDate(p.date)===g.date&&p.debit>0);
   g.interest=0;
+ }
+ const processed=new Set();
+ for(const g of groups.values()){
   const periodKey=[g.code,g.month,y].join("|");
+  if(processed.has(periodKey))continue;
+  processed.add(periodKey);
   const samePeriod=[...groups.values()].filter(x=>[x.code,x.month,y].join("|")===periodKey);
+  const rav=samePeriod.filter(x=>x.ravvedimento);
+  const target=samePeriod.length===1?samePeriod[0]:rav.length===1?rav[0]:null;
   const override=options.interestByPeriod?.[periodKey];
-  if(override!==undefined&&samePeriod.length===1){
-   if(Number.isSafeInteger(override)&&override>=0&&override<=g.amount)g.interest=override;
+  if(override!==undefined&&target){
+   if(Number.isSafeInteger(override)&&override>=0&&override<=target.amount)target.interest=override;
    else warnings.push("Interessi non validi per "+g.month+"/"+y+": correggere prima della conferma");
   }else if(override!==undefined){
    warnings.push("Interessi del periodo "+g.month+"/"+y+" da ripartire fra più date nello ST");
-  }else if(g.ravvedimento&&g.payments.length>1){
-   const candidate=Math.min(...g.payments.map(p=>p.debit));
-   if(samePeriod.length===1&&expected.has(periodKey)&&g.amount-expected.get(periodKey)===candidate){
-    g.interest=candidate;
-    warnings.push("Ravvedimento "+g.month+"/"+y+" del "+g.date+": interessi proposti dalla riga 1040 minore e quadratura gestionale, da verificare");
-   }else warnings.push("Ravvedimento "+g.month+"/"+y+" del "+g.date+": importo interessi da indicare manualmente; righe 1040 non distinguibili con certezza");
+  }else if(target?.ravvedimento&&expected.has(periodKey)){
+   const excess=samePeriod.reduce((sum,x)=>sum+x.amount,0)-expected.get(periodKey);
+   if(excess>0&&excess<=target.amount){
+    target.interest=excess;
+    warnings.push("Ravvedimento "+g.month+"/"+y+" del "+target.date+": interessi proposti dalla differenza F24/ritenute, da verificare");
+   }else if(excess<0)warnings.push("Ravvedimento "+g.month+"/"+y+": importo interessi da indicare manualmente; periodo non quadrato");
   }
-  if(g.ravvedimento)warnings.push("Ravvedimento proposto "+g.month+"/"+y+" del "+g.date+": verificare punti 8 e 9; sanzione 8948 esclusa dallo ST");
+  if(rav.length>1)warnings.push("Ravvedimenti "+g.month+"/"+y+": più date, attribuire manualmente gli interessi");
+  for(const r of rav)warnings.push("Ravvedimento proposto "+r.month+"/"+y+" del "+r.date+": verificare punti 8 e 9; sanzione 8948 esclusa dallo ST");
  }
  for(const g of groups.values()){
   const periodKey=[g.code,g.month,y].join("|");
