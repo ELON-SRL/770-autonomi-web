@@ -104,7 +104,8 @@ function render(){
    const periodInput=document.createElement("input");periodInput.type="text";periodInput.className="inline-field";
    periodInput.placeholder="MM/AAAA per variazione";periodInput.setAttribute("aria-label","Periodo attribuzione rettifica");
    periodInput.title="Se cambi il totale delle ritenute, indica il mese al quale attribuire la differenza";
-   td.append(periodInput);
+   const codeInput=document.createElement("input");codeInput.type="text";codeInput.className="inline-field";codeInput.placeholder="Tributo es. 1040";codeInput.value="1040";
+   codeInput.title="Codice tributo da attribuire alla rettifica";td.append(periodInput,codeInput);
    tr.children[3].textContent="Calcolata";
    btn.textContent="Conferma";btn.addEventListener("click",()=>{
     const name=normalize(inputs.name.value),ledger=cents(inputs.ledger.value),cu=cents(inputs.cu.value);
@@ -115,13 +116,14 @@ function render(){
      if(!/^(0[1-9]|1[0-2])\/20\d{2}$/.test(period)){
       $("status").textContent="Per modificare il totale delle ritenute devi indicare il periodo MM/AAAA. Nessuna rettifica applicata.";return;
      }
-     const candidate=ledgerState.find(x=>!x.excluded&&normalize(x.name)===normalize(r.key)&&x.period===period);
+     const code=codeInput.value.trim();if(!/^[0-9]{4}$/.test(code)){$("status").textContent="Codice tributo non valido";return}
+     const candidate=ledgerState.find(x=>!x.excluded&&normalize(x.name)===normalize(r.key)&&x.period===period&&x.code===code);
      if(candidate){
       if(candidate.amount+delta<0){$("status").textContent="La rettifica renderebbe negativo il movimento: modifica prima il dettaglio.";return}
       candidate.amount+=delta;candidate.edited=true;
      }else{
       if(delta<0){$("status").textContent="Non esiste una ritenuta nel periodo da ridurre: modifica prima il dettaglio.";return}
-      ledgerState.push({id:"adjustment-"+(++ledgerSeq),source:null,name:r.key,code:"1040",
+      ledgerState.push({id:"adjustment-"+(++ledgerSeq),source:null,name:r.key,code,
        date:"01/"+period.slice(0,2)+"/"+period.slice(-2),period,amount:delta,excluded:false,edited:true});
      }
     }
