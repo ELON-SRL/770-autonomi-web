@@ -15,7 +15,7 @@ jobs:
           node-version: '22'
       - name: Validate JavaScript syntax
         run: |
-          for file in app.js ledger_tree.js f24_ade.js movement_edits.js f24_groups.js ravvedimenti.js st_draft.js identita.js; do
+          for file in app.js v2.js ledger_tree.js f24_ade.js movement_edits.js f24_groups.js ravvedimenti.js st_draft.js identita.js; do
             node --check "$file"
           done
       - name: Test correction and ST rules
