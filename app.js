@@ -383,40 +383,6 @@ function f24Render(){
   btn.textContent=r.payments.length+" F24 · Dettaglio";
   btn.addEventListener("click",()=>alert(r.payments.length?r.payments.map(p=>p.date+" · "+f24Euro(p.debit)+" € · "+p.source).join("\n"):"Nessun F24 associato"));
   detail.append(btn);
-  if(r.status==="DA_ATTRIBUIRE"&&r.payments.length){
-   const candidates=rows.filter(x=>x.code===r.code&&x.year===r.year&&x.expected>0)
-    .sort((a,b)=>Math.abs(a.expected-a.paid-r.paid)-Math.abs(b.expected-b.paid-r.paid));
-   const picker=document.createElement("select");picker.className="period-picker";
-   const placeholder=document.createElement("option");placeholder.value="";placeholder.textContent="Scegli periodo";picker.append(placeholder);
-   for(const candidate of candidates){
-    const opt=document.createElement("option");opt.value=candidate.month;
-    opt.textContent=candidate.month+"/"+candidate.year+" · residuo "+f24Euro(candidate.expected-candidate.paid)+" €";
-    picker.append(opt);
-   }
-   for(let month=1;month<=12;month++){
-    const mm=String(month).padStart(2,"0");
-    if(candidates.some(x=>x.month===mm))continue;
-    const opt=document.createElement("option");opt.value=mm;opt.textContent=mm+"/"+r.year+" · altro periodo";picker.append(opt);
-   }
-   const apply=document.createElement("button");apply.textContent="Attribuisci";
-   apply.addEventListener("click",()=>{
-    if(!picker.value){$("f24status").textContent="Seleziona il periodo di destinazione.";return}
-    const selected=r.payments;
-    const chosen=picker.value;
-    for(const item of selected){
-     const source=[...f24Rows,...f24Manual].find(x=>x.uid===item.uid);
-     if(!source){$("f24status").textContent="Movimento originale non trovato: attribuzione annullata.";return}
-    }
-    for(const item of selected){
-     const source=[...f24Rows,...f24Manual].find(x=>x.uid===item.uid);
-     source.assignedMonth=chosen;source.assignedYear=r.year;source.edited=true;
-    }
-    invalidateAfterF24Change();
-    $("f24status").textContent="Attribuiti "+selected.length+" movimenti al periodo "+chosen+"/"+r.year+"; nessun F24 duplicato.";
-    f24Render();
-   });
-   detail.append(picker,apply);
-  }
   tr.append(detail);tbody.append(tr);
  }
  $("exportf24").disabled=!rows.length;
