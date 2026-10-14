@@ -9,3 +9,9 @@ Collaudo 14 ottobre 2026: otto test Node superati; nell'in-app browser verificat
 Una sostituzione/ripristino del listato F24 scioglie i collegamenti. Anche l'esclusione del F24 o la variazione del suo periodo/codice scioglie un collegamento incompatibile; riconciliare nuovamente dopo il ripristino. Nessuna duplicazione di importi. I collegamenti restano nella sessione corrente come le altre rettifiche.
 
 Test: `node --test tests/*.test.mjs`. Il test browser opzionale richiede Playwright e Chrome installati, un server locale sulla porta 8765 e `node tests/manual_reconciliation.browser.cjs`. In questa sessione è stato usato il browser integrato perché Chrome non era installato.
+
+## Filtro anno delle ritenute
+
+L'anno selezionato filtra le ritenute in base al periodo contabile del movimento di lavoro, prima di applicare il periodo proposto ST. Le ritenute fuori anno restano visibili e modificabili nel registro, marcate come escluse dai conteggi; non entrano nel confronto gestionale/CU, nei totali per periodo, nel CSV di controllo o nei candidati alla riconciliazione. Cambiare anno ricalcola i prospetti e invalida lo ST precedente. Un collegamento ST non può riattribuire una ritenuta fra anni diversi.
+
+Verificato con un listato sintetico misto: luglio 2025 209,26 euro e gennaio 2026 500,00 euro. Con 2025 selezionato il totale gestionale è 209,26, la ritenuta 2026 è indicata fuori anno e lo ST riconciliato agosto conserva 209,26/209,28. Cambiando a 2026 il totale gestionale diventa 500,00; tornando a 2025 torna 209,26. Il brogliaccio CU resta quello caricato: per lavorare un altro anno occorre caricare anche la CU pertinente.

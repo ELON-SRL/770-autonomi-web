@@ -1,7 +1,7 @@
 "use strict";
 import {link,unlink,syncLinks} from "./manual_reconciliation.js";
 import {cloneF24,usableF24,validateF24Change,parseEuros} from "./movement_edits.js";
-import {newLedgerState,activeLedger,ledgerSummary,validateLedger} from "./ledger_tree.js";
+import {newLedgerState,activeLedger,ledgerSummary,validateLedger,inLedgerYear} from "./ledger_tree.js";
 import {paymentGroupSummary} from "./f24_groups.js";
 import {buildStDraft,validateStRow} from "./st_draft.js";
 import {taxId,identify,identifyDetailed,verify} from "./identita.js";
@@ -80,7 +80,7 @@ function effective(row){return {...row,...(overrides.get(row.name)||{})}}
 function render(){
  // I totali gestionali sono SEMPRE derivati dai movimenti attivi: non dal PDF importato immutabile.
  const totals=new Map();
- for(const item of ledgerState.filter(x=>!x.excluded)){
+ for(const item of ledgerState.filter(x=>!x.excluded&&inLedgerYear(x,$("year").value))){
   const key=normalize(item.name);totals.set(key,(totals.get(key)||0)+item.amount);
  }
  const rows=original.map(row=>({...effective(row),key:row.name,
@@ -139,7 +139,8 @@ function render(){
  }
  const total=rows.reduce((s,r)=>s+r.ledger-r.cu,0);
  const nonzero=rows.filter(r=>r.ledger!==r.cu).length;
- $("summary").textContent=`Percipienti: ${rows.length} · Differenze: ${nonzero} · Scostamento gestionale - CU: ${display(total)} €`;
+ const outside=ledgerState.filter(x=>!x.excluded&&!inLedgerYear(x,$("year").value));
+ $("summary").textContent=`Anno ${$("year").value} · Ritenute fuori anno escluse: ${outside.length} (${display(outside.reduce((sum,x)=>sum+x.amount,0))} €) · Percipienti: ${rows.length} · Differenze: ${nonzero} · Scostamento gestionale - CU: ${display(total)} €`;
  $("review").disabled=!rows.length||nonzero>0;
  if(nonzero)$("review").checked=false;
  $("next").disabled=nonzero>0||!$("review").checked;
@@ -166,18 +167,21 @@ $("check").addEventListener("click",async()=>{
   $("identity").textContent=identityNotes.join(" · ")+". Il valore inserito resta quello della pratica; verifica la corrispondenza dei documenti.";
   console.info("770 import diagnostica (senza nominativi)",{righeGestionale:ledger.length,righeCU:cu.length,righeTestoGestionale:ledgerLines.length,righeTestoCU:cuLines.length});
   if(!ledger.length||!cu.length)throw new Error(`Formato PDF non riconosciuto (movimenti: ${ledger.length}; CU: ${cu.length}). Serve adattare il lettore al testo estratto; nessun dato è stato riconciliato.`);
-  ledgerState=newLedgerState(ledger);ledgerRows=activeLedger(ledgerState);f24Rows=[];f24Manual=[];interestOverrides.clear();original=aggregate(ledger,cu);overrides.clear();$("review").checked=false;$("phase2").hidden=false;
+  ledgerState=newLedgerState(ledger);ledgerRows=activeLedger(ledgerState,$("year").value);f24Rows=[];f24Manual=[];interestOverrides.clear();original=aggregate(ledger,cu);overrides.clear();$("review").checked=false;$("phase2").hidden=false;
   $("status").textContent=`Acquisite ${ledger.length} righe gestionali e ${cu.length} righe CU. Verifica i totali prima di confermare.`;
   render();renderLedgerTree();f24Render();$("stSection").hidden=false;
   if($("f24").files[0])$("readf24").click();
  }catch(err){$("status").textContent="Importazione non completata: "+err.message}
  finally{$("check").disabled=false}
 });
+$("year").addEventListener("change",()=>{interestOverrides.clear();invalidateTree()});
 $("review").addEventListener("change",render);
 $("reset").addEventListener("click",()=>{overrides.clear();$("review").checked=false;render()});
 $("next").addEventListener("click",()=>{$("phase2").hidden=false;$("phase2").scrollIntoView({behavior:"smooth"})});
 $("export").addEventListener("click",()=>{
- const rows=original.map(row=>({...effective(row),key:row.name}));
+ const totals=new Map();
+ for(const item of activeLedger(ledgerState,$("year").value))totals.set(normalize(item.name),(totals.get(normalize(item.name))||0)+item.amount);
+ const rows=original.map(row=>({...effective(row),key:row.name,ledger:totals.get(normalize(row.name))||0}));
  const csv=["Percipiente;Ritenuta gestionale;Ritenuta CU;Differenza;Rettificata",...rows.map(r=>[r.name,display(r.ledger),display(r.cu),display(r.ledger-r.cu),overrides.has(r.key)?"SI":"NO"].join(";"))].join("\r\n");
  const blob=new Blob(["\ufeff"+csv],{type:"text/csv;charset=utf-8"});
  const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="770-controllo-cu.csv";a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000);
@@ -222,7 +226,7 @@ function renderF24Movements(){
    btn.textContent="Modifica";btn.addEventListener("click",()=>{editingF24=row.uid;renderF24Movements()});actions.append(btn);
    const picker=document.createElement("select");picker.className="period-picker";
    const first=document.createElement("option");first.value="";first.textContent="Attribuisci a…";picker.append(first);
-   const options=new Set(ledgerSummary(ledgerState).map(x=>x.period));
+   const options=new Set(ledgerSummary(ledgerState,$("year").value).map(x=>x.period));
    const current=(row.assignedMonth??row.month??"")+"/"+(row.assignedYear??row.year);
    if(current&&current!=="/")options.add(current);
    for(const period of [...options].sort()){
@@ -275,7 +279,7 @@ $("resetF24").addEventListener("click",()=>{
 });
 function invalidateAfterF24Change(){
  syncLinks(ledgerState,usableF24([...f24Rows,...f24Manual]));
- ledgerRows=activeLedger(ledgerState);
+ ledgerRows=activeLedger(ledgerState,$("year").value);
  renderLedgerTree();
  $("f24review").checked=false;$("stSection").hidden=true;
  stDraft=[];stInvalidate();
@@ -296,7 +300,7 @@ function renderRavvedimenti(){
 }
 function invalidateTree(){
  syncLinks(ledgerState,usableF24([...f24Rows,...f24Manual]));
- ledgerRows=activeLedger(ledgerState);
+ ledgerRows=activeLedger(ledgerState,$("year").value);
  $("review").checked=false;
  $("f24review").checked=false;
  $("stSection").hidden=false;
@@ -309,7 +313,7 @@ function renderLedgerTree(){
  const body=$("ledgerMovements");body.replaceChildren();
  for(const r of ledgerState){
   const tr=document.createElement("tr"),active=editingLedger===r.id,inputs={};
-  if(r.excluded)tr.className="excluded-row";
+  if(r.excluded||!inLedgerYear(r,$("year").value))tr.className="excluded-row";
   const fields=["name","code","period","amount"];
   for(const field of fields){
    const td=document.createElement("td");
@@ -320,7 +324,7 @@ function renderLedgerTree(){
    }else td.textContent=field==="amount"?f24Euro(r.amount):String(r[field]);
    tr.append(td);
   }
-  const origin=document.createElement("td");origin.textContent=(r.source?"Gestionale":"Manuale")+(r.reconciliation?" · Riconciliata → ST "+r.stPeriod:"");tr.append(origin);
+  const origin=document.createElement("td");origin.textContent=(!inLedgerYear(r,$("year").value)?"Fuori anno "+$("year").value+" · Esclusa dai conteggi · ":"")+(r.source?"Gestionale":"Manuale")+(r.reconciliation?" · Riconciliata → ST "+r.stPeriod:"");tr.append(origin);
   const td=document.createElement("td"),btn=document.createElement("button");
   if(active){
    btn.textContent="Conferma";btn.addEventListener("click",()=>{
@@ -342,7 +346,7 @@ function renderLedgerTree(){
   tr.append(td);body.append(tr);
  }
  const summary=$("ledgerPeriods");summary.replaceChildren();
- for(const group of ledgerSummary(ledgerState)){
+ for(const group of ledgerSummary(ledgerState,$("year").value)){
   const tr=document.createElement("tr");
   for(const val of [group.period,group.code,f24Euro(group.amount),String(group.count)]){
    const td=document.createElement("td");td.textContent=val;tr.append(td);
@@ -392,7 +396,7 @@ function f24Render(){
   detail.append(btn);
   tr.append(detail);
   const corrections=document.createElement("td");
-  const matching=ledgerState.filter(x=>!x.excluded&&x.code===r.code&&(x.stPeriod||x.period)===r.month+"/"+r.year);
+  const matching=ledgerState.filter(x=>!x.excluded&&inLedgerYear(x,year)&&x.code===r.code&&(x.stPeriod||x.period)===r.month+"/"+r.year);
   if(matching.length){
    const edit=document.createElement("button");edit.textContent="Modifica ritenuta";
    edit.addEventListener("click",()=>{
@@ -433,7 +437,7 @@ function f24Render(){
     corrections.append(info,undo);
    }
   }else{
-   const candidates=ledgerState.filter(x=>!x.excluded&&!x.reconciliation&&x.code===r.code&&x.period!==r.month+"/"+r.year);
+   const candidates=ledgerState.filter(x=>!x.excluded&&inLedgerYear(x,year)&&!x.reconciliation&&x.code===r.code&&x.period!==r.month+"/"+r.year);
    const picker=document.createElement("select");picker.className="period-picker";
    const placeholder=document.createElement("option");placeholder.value="";placeholder.textContent="Scegli ritenuta";picker.append(placeholder);
    for(const candidate of candidates){
@@ -501,7 +505,7 @@ $("readf24").addEventListener("click",async()=>{
   for(const row of fresh){const k=key(row);counts.set(k,(counts.get(k)||0)+1)}
   const manualKeys=new Set(f24Manual.filter(r=>!r.excluded).map(r=>key(r)));
   const overlap=[...manualKeys].filter(k=>counts.has(k)).length;
-  for(const row of ledgerState)unlink(row);ledgerRows=activeLedger(ledgerState);
+  for(const row of ledgerState)unlink(row);ledgerRows=activeLedger(ledgerState,$("year").value);
   f24Rows=fresh;editingF24=null;interestOverrides.clear();
   invalidateAfterF24Change();
   if(overlap){
@@ -721,7 +725,7 @@ $("testImport").addEventListener("change",async()=>{
   $("taxpayer").value=data.taxpayer;
   $("year").value=data.year;
   ledgerState=newLedgerState(data.ledger);
-  ledgerRows=activeLedger(ledgerState);
+  ledgerRows=activeLedger(ledgerState,$("year").value);
   original=aggregate(data.ledger,data.cu);
   overrides.clear();editingCu=null;editingLedger=null;editingF24=null;
   f24Rows=cloneF24(data.f24);f24Manual=[];interestOverrides.clear();stDraft=[];

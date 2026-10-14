@@ -9,16 +9,19 @@ export function newLedgerState(rows){
   period:normalizeMonth(r.date),amount:r.amount,excluded:false,edited:false
  }));
 }
-export function activeLedger(rows){
- return rows.filter(r=>!r.excluded).map(r=>{
+export function inLedgerYear(row,year){
+ return year===undefined||String(row.period||normalizeMonth(row.date)||"").slice(-4)===String(year);
+}
+export function activeLedger(rows,selectedYear){
+ return rows.filter(r=>!r.excluded&&inLedgerYear(r,selectedYear)).map(r=>{
   const [month,year]=(r.stPeriod||r.period||"").split("/");
   return {name:r.name,code:r.code,date:"01/"+month+"/"+year.slice(-2),amount:r.amount,
    period:r.stPeriod||r.period,id:r.id,source:r.source,reconciliation:r.reconciliation,originalPeriod:r.period};
  });
 }
-export function ledgerSummary(rows){
+export function ledgerSummary(rows,year){
  const map=new Map();
- for(const r of rows.filter(x=>!x.excluded)){
+ for(const r of rows.filter(x=>!x.excluded&&inLedgerYear(x,year))){
   const key=[r.code,r.period].join("|");
   if(!map.has(key))map.set(key,{key,code:r.code,period:r.period,amount:0,count:0});
   const g=map.get(key);g.amount+=r.amount;g.count++;
