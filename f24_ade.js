@@ -58,7 +58,7 @@ export function expectedByPeriod(ledger,year){
 export function reconcile(ledger,payments,year){
  const expected=expectedByPeriod(ledger,year),paid=new Map(),detail=new Map();
  for(const row of payments){
-  if(row.year!==String(year)||!row.month)continue;
+  if(row.year!==String(year)||!row.month||!ledger.some(item=>item.code===row.code))continue;
   const key=[row.code,row.month,row.year].join("|");
   paid.set(key,(paid.get(key)||0)+row.debit);
   if(!detail.has(key))detail.set(key,[]);
