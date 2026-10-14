@@ -17,7 +17,7 @@ const money=n=>Number(n).toLocaleString("it-IT",{minimumFractionDigits:2,maximum
 const cents=s=>Math.round(Number(String(s).replace(/\./g,"").replace(",","."))*100);
 const display=n=>money(n/100);
 const normalize=s=>String(s).toUpperCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/\s+/g," ").trim();
-let original=[],overrides=new Map(),parseIssues=[],ledgerRows=[],f24Rows=[],f24Manual=[],interestOverrides=new Map(),stDraft=[];
+let original=[],overrides=new Map(),parseIssues=[],ledgerRows=[],f24Rows=[],f24Manual=[],interestOverrides=new Map(),stDraft=[],editingCu=null;
 function lineText(items){
  const groups=[];
  for(const item of items){
@@ -82,7 +82,22 @@ function render(){
   }
   tr.children[3].className=diff?"mismatch":"match";
   const td=document.createElement("td"),btn=document.createElement("button");
-  btn.textContent="Rettifica";btn.addEventListener("click",()=>edit(r));td.append(btn);tr.append(td);tbody.append(tr);
+  if(editingCu===r.name){
+   const input=document.createElement("input");input.type="text";input.value=display(r.ledger);input.className="inline-field";input.setAttribute("aria-label","Ritenuta "+r.name);
+   tr.children[1].replaceChildren(input);
+   btn.textContent="Conferma";btn.addEventListener("click",()=>{
+    const value=input.value.trim();
+    if(!/^[0-9]+(?:[.][0-9]{3})*(?:,[0-9]{1,2})?$/.test(value)){alert("Importo non valido");return}
+    const amount=cents(value);
+    if(!Number.isSafeInteger(amount)||amount<0){alert("Importo non valido");return}
+    overrides.set(r.name,amount);editingCu=null;$("review").checked=false;render();
+   });
+   const cancel=document.createElement("button");cancel.textContent="Annulla";cancel.className="secondary";cancel.addEventListener("click",()=>{editingCu=null;render()});
+   td.append(btn,cancel);
+  }else{
+   btn.textContent="Modifica";btn.addEventListener("click",()=>{editingCu=r.name;render()});td.append(btn);
+  }
+  tr.append(td);tbody.append(tr);
  }
  const total=rows.reduce((s,r)=>s+r.ledger-r.cu,0);
  const nonzero=rows.filter(r=>r.ledger!==r.cu).length;
@@ -91,13 +106,6 @@ function render(){
  if(nonzero)$("review").checked=false;
  $("next").disabled=nonzero>0||!$("review").checked;
  $("reset").disabled=!overrides.size;$("export").disabled=!rows.length;
-}
-function edit(row){
- const answer=prompt("Ritenuta gestionale rettificata per "+row.name+" (€)",display(row.ledger));
- if(answer===null)return;
- const value=cents(answer);
- if(!Number.isFinite(value)||value<0){alert("Importo non valido");return}
- overrides.set(row.name,value);$("review").checked=false;render();
 }
 $("check").addEventListener("click",async()=>{
  const ledgerFile=$("ledger").files[0],cuFile=$("cu").files[0];
