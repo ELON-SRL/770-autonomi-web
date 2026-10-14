@@ -273,18 +273,17 @@ $("readf24").addEventListener("click",async()=>{
  }catch(e){$("f24status").textContent="Errore F24: "+e.message}
  finally{$("readf24").disabled=false}
 });
+let manualSequence=0;
 $("addf24").addEventListener("click",()=>{
- const code=prompt("Codice tributo (4 cifre)","1040");if(code===null)return;
- if(!/^\d{4}$/.test(code)){alert("Codice tributo non valido");return}
- const period=prompt("Periodo MM/AAAA","03/"+$("year").value);if(period===null)return;
- const match=period.match(/^(0[1-9]|1[0-2])\/(20\d{2})$/);if(!match){alert("Periodo non valido");return}
- const date=prompt("Data versamento GG/MM/AAAA","16/04/"+$("year").value);if(date===null)return;
- if(!/^\d{2}\/\d{2}\/20\d{2}$/.test(date)){alert("Data non valida");return}
- const value=prompt("Importo a debito (€)","0,00");if(value===null)return;
- const debit=f24Cents(value);if(!Number.isFinite(debit)||debit<0){alert("Importo non valido");return}
- f24Manual.push({uid:"manual-"+Date.now(),code,month:match[1],year:match[2],assignedMonth:match[1],assignedYear:match[2],date,debit,credit:0,source:"MANUALE",excluded:false,edited:true});
- $("f24status").textContent="Inserimento manuale registrato per la sessione (non verificato con quietanza).";
- f24Render();
+ const year=$("year").value;
+ const row={uid:"manual-"+(++manualSequence),code:"1040",month:"01",year,assignedMonth:"01",assignedYear:year,
+ date:"",debit:0,credit:0,source:"MANUALE",excluded:false,edited:true,
+ original:{date:"",code:"1040",month:"01",year,debit:0,credit:0}};
+ f24Manual.push(row);editingF24=row.uid;invalidateAfterF24Change();f24Render();
+ $("f24status").textContent="Nuovo F24: compila i campi della riga e premi Conferma.";
+});
+$("replacef24").addEventListener("click",()=>{
+ $("f24").click();
 });
 $("exportf24").addEventListener("click",()=>{
  const rows=reconcile(ledgerRows,usableF24([...f24Rows,...f24Manual]),$("year").value);
