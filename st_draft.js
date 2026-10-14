@@ -24,7 +24,7 @@ export function buildStDraft(ledger,payments,year,options={}){
   // No automatic allocation of monthly withheld amounts across separate payment dates.
   rows.push({
    id:g.key,point1:g.month+"/"+y,point2:null,point6:0,point7:g.amount,
-   point8:0,point9:false,point10:g.notes,point11:g.code,point14:g.date,
+   point8:0,point9:false,point10:g.notes,point11:g.code,point14:g.date,point15:"",point16:"",
    paymentCount:g.payments.length,origin:"F24",reviewed:false,
    issue:"Attribuire e verificare le ritenute del punto 2; interessi, note e ravvedimento da verificare"
   });
@@ -32,7 +32,7 @@ export function buildStDraft(ledger,payments,year,options={}){
  for(const [key,total] of expected){
   if([...groups.values()].some(g=>[g.code,g.month,y].join("|")===key))continue;
   const [code,month]=key.split("|");
-  rows.push({id:"unpaid|"+key,point1:month+"/"+y,point2:total,point6:0,point7:0,point8:0,point9:false,point10:"",point11:code,point14:"",paymentCount:0,origin:"RITENUTA_SENZA_F24",reviewed:false,issue:"Ritenuta senza versamento individuato; verificare compilazione"});
+  rows.push({id:"unpaid|"+key,point1:month+"/"+y,point2:total,point6:0,point7:0,point8:0,point9:false,point10:"",point11:code,point14:"",point15:"",point16:"",paymentCount:0,origin:"RITENUTA_SENZA_F24",reviewed:false,issue:"Ritenuta senza versamento individuato; verificare compilazione"});
  }
  if(options.hasAggregatedCuCorrections)warnings.push("Rettifiche CU aggregate non attribuite ai periodi: bozza ST non confermabile");
  return {rows:rows.sort((a,b)=>a.point1.localeCompare(b.point1)||a.point14.localeCompare(b.point14)),warnings};
@@ -46,6 +46,7 @@ export function validateStRow(r){
   if(r[key]!==null&&(!Number.isSafeInteger(r[key])||r[key]<0))errors.push(key+" non valido");
  }
  if(r.point8>r.point7)errors.push("Interessi maggiori del versamento");
+ if(r.point8>0&&!r.point9)errors.push("Verificare ravvedimento per interessi dichiarati");
  if(r.point2===null)errors.push("Punto 2 non attribuito");
  return errors;
 }
