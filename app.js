@@ -420,8 +420,37 @@ function f24Render(){
    });
    corrections.append(edit,remove);
   }else{
-   const note=document.createElement("span");note.textContent="Nessuna ritenuta nel periodo";
-   corrections.append(note);
+   const candidates=ledgerState.filter(x=>!x.excluded&&x.code===r.code&&x.period!==r.month+"/"+r.year);
+   const picker=document.createElement("select");picker.className="period-picker";
+   const placeholder=document.createElement("option");placeholder.value="";placeholder.textContent="Scegli ritenuta";picker.append(placeholder);
+   for(const candidate of candidates){
+    const option=document.createElement("option");option.value=candidate.id;
+    option.textContent=candidate.period+" · "+candidate.name+" · "+f24Euro(candidate.amount)+" €";
+    picker.append(option);
+   }
+   const assign=document.createElement("button");assign.textContent="Attribuisci ritenuta";
+   assign.addEventListener("click",()=>{
+    const item=ledgerState.find(x=>x.id===picker.value&&!x.excluded);
+    if(!item){$("f24status").textContent="Seleziona una ritenuta da attribuire al periodo "+r.month+"/"+r.year;return}
+    item.period=r.month+"/"+r.year;item.edited=true;
+    invalidateTree();
+    $("f24status").textContent="Ritenuta di "+f24Euro(item.amount)+" € attribuita al periodo "+r.month+"/"+r.year+". F24 invariato.";
+   });
+   corrections.append(picker,assign);
+   const create=document.createElement("button");create.textContent="+ Ritenuta";
+   create.addEventListener("click",()=>{
+    const amount=prompt("Importo nuova ritenuta (€)",f24Euro(r.paid));
+    if(amount===null)return;
+    const parsed=parseEuros(amount);
+    if(parsed===null){$("f24status").textContent="Importo non valido";return}
+    const name=prompt("Percipiente della nuova ritenuta","");
+    if(name===null||!name.trim())return;
+    ledgerState.push({id:"adjustment-"+(++ledgerSeq),source:null,name:normalize(name),code:r.code,
+     period:r.month+"/"+r.year,amount:parsed,excluded:false,edited:true});
+    invalidateTree();
+    $("f24status").textContent="Ritenuta manuale inserita nel periodo "+r.month+"/"+r.year+".";
+   });
+   corrections.append(create);
   }
   tr.append(corrections);tbody.append(tr);
  }
