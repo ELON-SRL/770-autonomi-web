@@ -17,5 +17,12 @@
 <div class="scroll"><table><thead><tr><th>Tributo</th><th>Periodo</th><th>Ritenute</th><th>F24</th><th>Differenza lorda</th><th>Interessi ipotizzati (modificabili)</th><th>Residuo</th><th>Versamenti</th></tr></thead><tbody id="f24rows"></tbody></table></div>
 <label class="confirm"><input id="f24review" type="checkbox"> Ho preso visione delle differenze F24 e confermo di voler proseguire</label>
 <p class="warning">La lettura del PDF F24 è sperimentale. Controllare che tutte le righe siano state riconosciute; i versamenti manuali sono provvisori e non costituiscono quietanza. Le rettifiche per percipiente della fase 1 non sono ancora attribuite automaticamente ai periodi.</p></section>
+<section id="stSection" hidden><h2>4. Quadro ST provvisorio — Sezione I</h2>
+<p>Bozza da verificare e rettificare. I righi sono distinti per data di versamento, codice tributo, periodo e note.</p>
+<div class="actions"><button id="makeSt">Genera ST provvisorio</button><button id="addSt">Aggiungi rigo ST</button><button id="exportSt" disabled>Esporta ST CSV</button></div>
+<p id="stStatus" role="status"></p>
+<div class="scroll"><table><thead><tr><th>1 Periodo</th><th>2 Ritenute</th><th>6 Crediti</th><th>7 Versato</th><th>8 Interessi</th><th>9 Ravv.</th><th>10 Note</th><th>11 Tributo</th><th>14 Data</th><th>Modifica</th></tr></thead><tbody id="stRows"></tbody></table></div>
+<label class="confirm"><input type="checkbox" id="stConfirm"> Ho verificato tutti i righi ST, le note e gli eventuali interessi</label>
+<p class="warning">Esportazione di un prospetto ST di lavoro, non file telematico ministeriale. Non utilizzare per trasmissione senza verifica fiscale.</p></section>
 <footer>I PDF non vengono inviati a GitHub. Le modifiche restano nella sessione corrente finché non esportate.</footer></main>
 <script type="module" src="./app.js"></script></body></html>
