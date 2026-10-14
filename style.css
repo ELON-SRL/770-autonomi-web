@@ -19,3 +19,8 @@ td:has(.inline-field){background:#f0f7ff}td button.secondary{background:#65778b;
  .st-sheet{break-after:page}.st-sheet:last-child{break-after:auto}
  .st-print-table th{background:#eee!important;-webkit-print-color-adjust:exact;print-color-adjust:exact}
 }
+
+#f24movements td{min-width:100px}#f24movements td:last-child{min-width:170px}
+#f24movements td:nth-child(3){background:#f5f6f7;color:#526273}
+#f24movements input.inline-field{min-width:95px}
+.excluded-row{opacity:.6;text-decoration:line-through;background:#fff1ef}
