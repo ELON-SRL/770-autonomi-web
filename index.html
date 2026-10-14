@@ -10,6 +10,12 @@
 <label class="confirm"><input type="checkbox" id="review" disabled> Ho verificato le differenze e le eventuali rettifiche</label>
 <button id="next" disabled>Conferma e passa agli F24</button>
 <p class="warning">La lettura è sperimentale: controllare sempre il numero delle righe e gli importi. Nessun rigo 770 è ancora generato.</p></section>
-<section id="phase2" hidden><h2>3. Versamenti F24</h2><p>Fase 1 confermata. Il motore di importazione e riconciliazione F24 è in sviluppo; il file selezionato non è ancora elaborato.</p></section>
+<section id="phase2" hidden><h2>3. Riconciliazione F24</h2>
+<p>Aggregazione per codice tributo e mese/anno di riferimento. Ogni versamento frazionato resta identificabile.</p>
+<div class="actions"><button id="readf24">Leggi listato F24</button><button id="addf24">Aggiungi versamento manuale</button><button id="exportf24" disabled>Esporta quadratura CSV</button></div>
+<p id="f24status" role="status"></p>
+<div class="scroll"><table><thead><tr><th>Tributo</th><th>Periodo</th><th>Ritenute</th><th>F24</th><th>Differenza</th><th>Versamenti</th></tr></thead><tbody id="f24rows"></tbody></table></div>
+<label class="confirm"><input id="f24review" type="checkbox"> Ho preso visione delle differenze F24 e confermo di voler proseguire</label>
+<p class="warning">La lettura del PDF F24 è sperimentale. Controllare che tutte le righe siano state riconosciute; i versamenti manuali sono provvisori e non costituiscono quietanza. Le rettifiche per percipiente della fase 1 non sono ancora attribuite automaticamente ai periodi.</p></section>
 <footer>I PDF non vengono inviati a GitHub. Le modifiche restano nella sessione corrente finché non esportate.</footer></main>
 <script type="module" src="./app.js"></script></body></html>
