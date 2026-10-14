@@ -1,0 +1,1 @@
+{"format": "770-autonomi-test-v1", "taxpayer": "12345678901", "year": "2025", "ledger": [{"name": "TEST", "code": "1040", "date": "31/07/25", "amount": 20926}], "cu": [{"name": "TEST", "amount": 20926}], "f24": [{"date": "16/09/2025", "code": "1040", "month": "08", "year": "2025", "debit": 20928, "credit": 0}]}

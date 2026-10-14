@@ -1,4 +1,5 @@
 "use strict";
+import {link,unlink,syncLinks} from "./manual_reconciliation.js";
 import {cloneF24,usableF24,validateF24Change,parseEuros} from "./movement_edits.js";
 import {newLedgerState,activeLedger,ledgerSummary,validateLedger} from "./ledger_tree.js";
 import {paymentGroupSummary} from "./f24_groups.js";
@@ -266,12 +267,16 @@ $("resetF24").addEventListener("click",()=>{
   delete row.assignedMonth;delete row.assignedYear;
   row.excluded=false;row.edited=false;
  }
+ for(const row of ledgerState)unlink(row);
  f24Manual=[];editingF24=null;interestOverrides.clear();
  $("f24Audit").hidden=true;
  invalidateAfterF24Change();f24Render();
  $("f24status").textContent="Ripristinati i movimenti F24 originali. Riconciliazione ricalcolata.";
 });
 function invalidateAfterF24Change(){
+ syncLinks(ledgerState,usableF24([...f24Rows,...f24Manual]));
+ ledgerRows=activeLedger(ledgerState);
+ renderLedgerTree();
  $("f24review").checked=false;$("stSection").hidden=true;
  stDraft=[];stInvalidate();
  $("f24status").textContent="Movimenti modificati. Riconciliazione ricalcolata; quadro ST precedente invalidato.";
@@ -290,6 +295,7 @@ function renderRavvedimenti(){
  $("ravstatus").textContent=groups.length+" gruppi di versamento 1040/8948; data ereditata dalle righe senza data. Nessun importo sommato due volte.";
 }
 function invalidateTree(){
+ syncLinks(ledgerState,usableF24([...f24Rows,...f24Manual]));
  ledgerRows=activeLedger(ledgerState);
  $("review").checked=false;
  $("f24review").checked=false;
@@ -314,7 +320,7 @@ function renderLedgerTree(){
    }else td.textContent=field==="amount"?f24Euro(r.amount):String(r[field]);
    tr.append(td);
   }
-  const origin=document.createElement("td");origin.textContent=r.source?"Gestionale":"Manuale";tr.append(origin);
+  const origin=document.createElement("td");origin.textContent=(r.source?"Gestionale":"Manuale")+(r.reconciliation?" · Riconciliata → ST "+r.stPeriod:"");tr.append(origin);
   const td=document.createElement("td"),btn=document.createElement("button");
   if(active){
    btn.textContent="Conferma";btn.addEventListener("click",()=>{
@@ -361,7 +367,8 @@ function f24Render(){
   const values=[r.code,r.month+"/"+r.year,f24Euro(r.expected),f24Euro(r.paid),r.difference===null?status:f24Euro(r.difference)];
   for(const value of values){const td=document.createElement("td");td.textContent=value;tr.append(td)}
   tr.children[4].className=r.difference===null?"mismatch":r.difference?"mismatch":"match";
-  const proposed=r.status==="CONFRONTABILE"?Math.max(0,r.difference):0;
+  const linked=ledgerState.filter(x=>!x.excluded&&x.reconciliation&&x.stPeriod===r.month+"/"+r.year&&x.code===r.code);
+  const proposed=!linked.length&&r.status==="CONFRONTABILE"?Math.max(0,r.difference):0;
   const interest=interestOverrides.has(r.key)?interestOverrides.get(r.key):proposed;
   const cell=document.createElement("td"),input=document.createElement("input");
   input.type="number";input.step="0.01";input.min="0";input.value=(interest/100).toFixed(2);
@@ -385,7 +392,7 @@ function f24Render(){
   detail.append(btn);
   tr.append(detail);
   const corrections=document.createElement("td");
-  const matching=ledgerState.filter(x=>!x.excluded&&x.code===r.code&&x.period===r.month+"/"+r.year);
+  const matching=ledgerState.filter(x=>!x.excluded&&x.code===r.code&&(x.stPeriod||x.period)===r.month+"/"+r.year);
   if(matching.length){
    const edit=document.createElement("button");edit.textContent="Modifica ritenuta";
    edit.addEventListener("click",()=>{
@@ -403,7 +410,7 @@ function f24Render(){
      const diff=value-previous;
      if(matching[0].amount+diff<0){$("f24status").textContent="Riduzione superiore al primo movimento: modifica i movimenti nel dettaglio.";return}
      // Spostiamo solo le ritenute; NON cambiamo il periodo o la data degli F24.
-     for(const item of matching){item.period=target;item.edited=true}
+     for(const item of matching){if(item.reconciliation){if(target!==item.stPeriod)unlink(item);else continue}item.period=target;item.edited=true}
      matching[0].amount+=diff;
      invalidateTree();
      $("f24status").textContent="Ritenute modificate e attribuite a "+target+". F24 originali invariati.";
@@ -419,8 +426,14 @@ function f24Render(){
     $("f24status").textContent="Ritenute escluse dal periodo "+r.month+"/"+r.year+". Ripristinabili nel registro ritenute.";
    });
    corrections.append(edit,remove);
+   for(const item of linked){
+    const undo=document.createElement("button");undo.textContent="Annulla riconciliazione";
+    undo.onclick=()=>{unlink(item);invalidateTree()};
+    const info=document.createElement("span");info.textContent="Gestionale "+item.period+" → F24 / ST "+item.stPeriod+" · ";
+    corrections.append(info,undo);
+   }
   }else{
-   const candidates=ledgerState.filter(x=>!x.excluded&&x.code===r.code&&x.period!==r.month+"/"+r.year);
+   const candidates=ledgerState.filter(x=>!x.excluded&&!x.reconciliation&&x.code===r.code&&x.period!==r.month+"/"+r.year);
    const picker=document.createElement("select");picker.className="period-picker";
    const placeholder=document.createElement("option");placeholder.value="";placeholder.textContent="Scegli ritenuta";picker.append(placeholder);
    for(const candidate of candidates){
@@ -428,13 +441,13 @@ function f24Render(){
     option.textContent=candidate.period+" · "+candidate.name+" · "+f24Euro(candidate.amount)+" €";
     picker.append(option);
    }
-   const assign=document.createElement("button");assign.textContent="Attribuisci ritenuta";
+   const assign=document.createElement("button");assign.textContent="Riconcilia";
    assign.addEventListener("click",()=>{
     const item=ledgerState.find(x=>x.id===picker.value&&!x.excluded);
     if(!item){$("f24status").textContent="Seleziona una ritenuta da attribuire al periodo "+r.month+"/"+r.year;return}
-    item.period=r.month+"/"+r.year;item.edited=true;
+    try{link(item,r.payments)}catch(error){$("f24status").textContent=error.message;return}
     invalidateTree();
-    $("f24status").textContent="Ritenuta di "+f24Euro(item.amount)+" € attribuita al periodo "+r.month+"/"+r.year+". F24 invariato.";
+    $("f24status").textContent="Ritenuta di "+f24Euro(item.amount)+" € riconciliata: gestionale "+item.period+", F24 / ST "+item.stPeriod+". Importi originali conservati.";
    });
    corrections.append(picker,assign);
    const create=document.createElement("button");create.textContent="+ Ritenuta";
@@ -488,6 +501,7 @@ $("readf24").addEventListener("click",async()=>{
   for(const row of fresh){const k=key(row);counts.set(k,(counts.get(k)||0)+1)}
   const manualKeys=new Set(f24Manual.filter(r=>!r.excluded).map(r=>key(r)));
   const overlap=[...manualKeys].filter(k=>counts.has(k)).length;
+  for(const row of ledgerState)unlink(row);ledgerRows=activeLedger(ledgerState);
   f24Rows=fresh;editingF24=null;interestOverrides.clear();
   invalidateAfterF24Change();
   if(overlap){

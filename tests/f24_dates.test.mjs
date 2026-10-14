@@ -13,7 +13,7 @@ if(result.rows[0].dateInherited)throw Error("Explicit date not detected");
 const ledger=[{code:"1040",date:"20/05/25",amount:50000}];
 const draft=buildStDraft(ledger,result.rows,2025);
 if(draft.rows.length!==1||draft.rows[0].point7!==50000)throw Error("ST aggregation duplicated amounts");
-if(draft.rows[0].point14!=="16/6/2025")throw Error("ST14 date missing");
+if(draft.rows[0].point14!=="16/06/2025")throw Error("ST14 date missing");
 const invalid={...draft.rows[0],point14:""};
 if(!validateStRow(invalid).some(e=>e.includes("ST14")))throw Error("Missing date should block ST");
 console.log("F24 date inheritance and ST aggregation tests passed");

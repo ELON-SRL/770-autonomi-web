@@ -35,7 +35,9 @@ export function buildStDraft(ledger,payments,year,options={}){
   const periodKey=[g.code,g.month,y].join("|");
   const matching=[...groups.values()].filter(x=>[x.code,x.month,y].join("|")===periodKey);
   const totalExpected=expected.get(periodKey)||0;
-  const proposed=matching.length===1&&totalExpected===g.amount?totalExpected:null;
+  const linked=ledger.filter(l=>l.reconciliation?.period===g.month+"/"+y&&l.code===g.code);
+  const explicitlyLinked=linked.length>0&&linked.every(l=>l.reconciliation.paymentIds.every(id=>g.payments.some(p=>p.uid===id)));
+  const proposed=matching.length===1&&(totalExpected===g.amount||explicitlyLinked)?totalExpected:null;
   rows.push({
    id:g.key,point1:g.month+"/"+y,point2:proposed,point6:0,point7:g.amount,
    point8:0,point9:false,point10:g.notes,point11:g.code,point14:g.date,point15:"",point16:0,
