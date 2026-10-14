@@ -238,6 +238,7 @@ $("exportf24").addEventListener("click",()=>{
 
 function stInvalidate(){
  $("stConfirm").checked=false;$("exportSt").disabled=true;
+ $("printSt").disabled=true;$("stPrint").hidden=true;
 }
 const stFields=["point1","point2","point6","point7","point8","point9","point10","point11","point14","point15","point16"];
 const stMoney=new Set(["point2","point6","point7","point8","point16"]);
@@ -286,6 +287,7 @@ function stRender(){
  const issues=stDraft.flatMap((r,i)=>validateStRow(r).map(s=>"Rigo "+(i+1)+": "+s));
  $("stStatus").textContent=stDraft.length+" righi provvisori. "+(issues.length?issues.length+" verifiche necessarie: "+issues.slice(0,3).join("; "):"Controlli formali superati; verifica fiscale necessaria.");
  $("exportSt").disabled=!stDraft.length||issues.length>0||editingSt!==null||!$("stConfirm").checked;
+ $("printControls").hidden=!stDraft.length;
 }
 $("f24review").addEventListener("change",()=>{
  $("stSection").hidden=!$("f24review").checked;
@@ -308,4 +310,56 @@ $("exportSt").addEventListener("click",()=>{
  ...stDraft.map(row=>fields.map(field=>["point2","point6","point7","point8","point16"].includes(field)?(row[field]===null?"":f24Euro(row[field])):field==="point9"?(row[field]?"1":"0"):row[field]).join(";"))].join("\r\n");
  const blob=new Blob(["\ufeff"+csv],{type:"text/csv;charset=utf-8"});
  const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="770-ST-provvisorio.csv";a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000);
+});
+
+const stPrintFields=[
+ ["point1","1 Periodo"],["point2","2 Ritenute operate"],["point6","6 Crediti utilizzati"],
+ ["point7","7 Importo versato"],["point8","8 Interessi"],["point9","9 Ravvedimento"],
+ ["point10","10 Note"],["point11","11 Codice tributo"],["point14","14 Data versamento"],
+ ["point15","15 Sospensione"],["point16","16 Importo sospeso"]
+];
+function printCell(value){const cell=document.createElement("td");cell.textContent=String(value??"");return cell}
+function prepareStPrint(){
+ if(!stDraft.length){$("printStatus").textContent="Nessun quadro ST disponibile.";return}
+ if(!$("stConfirm").checked){$("printStatus").textContent="Conferma prima la revisione del quadro ST.";return}
+ const errors=stDraft.flatMap((r,i)=>validateStRow(r).map(e=>"Rigo "+(i+1)+": "+e));
+ if(errors.length){$("printStatus").textContent="Stampa non pronta: "+errors.slice(0,3).join("; ");return}
+ const target=$("stPrint");target.replaceChildren();
+ const heading=document.createElement("header"),title=document.createElement("h1"),sub=document.createElement("p");
+ title.textContent="MODELLO 770 — QUADRO ST";
+ sub.textContent="Sezione I — Ritenute alla fonte · Anno d'imposta "+$("year").value+" · Sostituto: "+$("taxpayer").value.trim().toUpperCase();
+ heading.append(title,sub);target.append(heading);
+ const warning=document.createElement("p");warning.className="print-warning";
+ warning.textContent="PROSPETTO DI LAVORO — NON È IL MODELLO MINISTERIALE UFFICIALE. Da verificare prima della trascrizione o dell'utilizzo.";
+ target.append(warning);
+ const perPage=6;
+ for(let start=0;start<stDraft.length;start+=perPage){
+  const sheet=document.createElement("div");sheet.className="st-sheet";
+  const table=document.createElement("table");table.className="st-print-table";
+  const thead=document.createElement("thead"),headrow=document.createElement("tr");
+  for(const [,label] of stPrintFields){const th=document.createElement("th");th.textContent=label;headrow.append(th)}
+  thead.append(headrow);table.append(thead);
+  const tbody=document.createElement("tbody");
+  for(const row of stDraft.slice(start,start+perPage)){
+   const tr=document.createElement("tr");
+   for(const [key] of stPrintFields){
+    let value=row[key];
+    if(["point2","point6","point7","point8","point16"].includes(key))value=value===null?"":f24Euro(value);
+    if(key==="point9")value=value?"X":"";
+    tr.append(printCell(value));
+   }
+   tbody.append(tr);
+  }
+  table.append(tbody);sheet.append(table);
+  const foot=document.createElement("p");foot.className="sheet-foot";
+  foot.textContent="Quadro ST · Pagina "+(Math.floor(start/perPage)+1)+" di "+Math.ceil(stDraft.length/perPage)+" · Prospetto non ministeriale";
+  sheet.append(foot);target.append(sheet);
+ }
+ target.hidden=false;$("printSt").disabled=false;
+ $("printStatus").textContent="Anteprima pronta: "+stDraft.length+" righi, "+Math.ceil(stDraft.length/perPage)+" pagine. Usa Stampa / Salva PDF.";
+}
+$("previewSt").addEventListener("click",prepareStPrint);
+$("printSt").addEventListener("click",()=>{
+ if($("stPrint").hidden){$("printStatus").textContent="Prepara prima l'anteprima.";return}
+ window.print();
 });
