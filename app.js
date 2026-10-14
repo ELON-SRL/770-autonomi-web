@@ -12,6 +12,7 @@ const selectedIds=["ledger","cu","f24"];
 for(const id of selectedIds){$(id).addEventListener("change",()=>{
  const names=selectedIds.filter(k=>$(k).files.length).map(k=>$(k).files[0].name);
  $("status").textContent=names.length+" documento/i selezionato/i. "+( $("ledger").files.length&&$("cu").files.length ? "Avvio automatico della prima riconciliazione…" : "Per la prima riconciliazione servono listato ritenute e brogliaccio CU.");
+ if(id==="f24"){$("f24status").textContent="Nuovo listato selezionato. Premi Leggi listato F24 per sostituire il precedente.";return}
  if($("ledger").files.length&&$("cu").files.length)$("check").click();
 });}
 const money=n=>Number(n).toLocaleString("it-IT",{minimumFractionDigits:2,maximumFractionDigits:2});
@@ -254,7 +255,23 @@ $("readf24").addEventListener("click",async()=>{
   if(!idsF24.length&&!confirm("Identificativo del contribuente non leggibile nel PDF F24. Hai verificato manualmente che sia quello corretto?"))throw Error("Verifica contribuente F24 non confermata.");
   const parsed=parseF24Pages(pages);
   if(!parsed.rows.length)throw Error("Nessuna riga F24 riconosciuta nel PDF Agenzia delle Entrate.");
-  f24Rows=cloneF24(parsed.rows);editingF24=null;
+  // La sostituzione è atomica: nessun dato precedente viene modificato se l'utente annulla.
+  const previous=f24Rows;
+  if(previous.length&&!confirm("Sostituire i movimenti importati dal PDF precedente? Gli F24 inseriti manualmente saranno conservati. Le rettifiche sulle righe importate saranno reimpostate."))return;
+  const fresh=cloneF24(parsed.rows);
+  const key=r=>[r.date,r.code,r.month??r.period,r.year,r.debit,r.credit].join("|");
+  const counts=new Map();
+  for(const row of fresh){const k=key(row);counts.set(k,(counts.get(k)||0)+1)}
+  const manualKeys=new Set(f24Manual.filter(r=>!r.excluded).map(r=>key(r)));
+  const overlap=[...manualKeys].filter(k=>counts.has(k)).length;
+  f24Rows=fresh;editingF24=null;interestOverrides.clear();
+  invalidateAfterF24Change();
+  if(overlap){
+   $("f24Audit").hidden=false;
+   $("f24Audit").textContent="Attenzione: "+overlap+" corrispondenze fra movimenti manuali e nuovo listato. Verifica ed escludi i duplicati prima della conferma.";
+  }else{
+   $("f24Audit").hidden=true;
+  }
   const year=$("year").value;
   const selected=f24Rows.filter(r=>r.year===year);
   const missing=selected.filter(r=>!r.month);
