@@ -1,7 +1,7 @@
 "use strict";
-import {link,unlink,syncLinks} from "./manual_reconciliation.js";
+import {link,unlink,syncLinks} from "./manual_reconciliation.js?v=20261014-year";
 import {cloneF24,usableF24,validateF24Change,parseEuros} from "./movement_edits.js";
-import {newLedgerState,activeLedger,ledgerSummary,validateLedger,inLedgerYear} from "./ledger_tree.js";
+import {newLedgerState,activeLedger,ledgerSummary,validateLedger,inLedgerYear} from "./ledger_tree.js?v=20261014-year";
 import {paymentGroupSummary} from "./f24_groups.js";
 import {buildStDraft,validateStRow} from "./st_draft.js";
 import {taxId,identify,identifyDetailed,verify} from "./identita.js";
