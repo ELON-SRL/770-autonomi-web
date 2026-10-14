@@ -30,9 +30,14 @@ export function buildStDraft(ledger,payments,year,options={}){
   const group=groups.get(key);group.amount+=p.debit;group.payments.push(p);
  }
  for(const g of groups.values()){
-  // No automatic allocation of monthly withheld amounts across separate payment dates.
+  // Propose ST2 only where one payment group fully covers the withholding period.
+  // With multiple dates, never repeat the entire period withholding on each ST row.
+  const periodKey=[g.code,g.month,y].join("|");
+  const matching=[...groups.values()].filter(x=>[x.code,x.month,y].join("|")===periodKey);
+  const totalExpected=expected.get(periodKey)||0;
+  const proposed=matching.length===1&&totalExpected===g.amount?totalExpected:null;
   rows.push({
-   id:g.key,point1:g.month+"/"+y,point2:null,point6:0,point7:g.amount,
+   id:g.key,point1:g.month+"/"+y,point2:proposed,point6:0,point7:g.amount,
    point8:0,point9:false,point10:g.notes,point11:g.code,point14:g.date,point15:"",point16:0,
    paymentCount:g.payments.length,origin:"F24",reviewed:false,
    issue:"Attribuire e verificare le ritenute del punto 2; interessi, note e ravvedimento da verificare"
