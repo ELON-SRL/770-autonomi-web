@@ -83,7 +83,7 @@ function render(){
   const key=normalize(item.name);totals.set(key,(totals.get(key)||0)+item.amount);
  }
  const rows=original.map(row=>({...effective(row),key:row.name,
-  ledger:overrides.has(row.name)?overrides.get(row.name).ledger:(totals.get(normalize(row.name))||0)})),tbody=$("results");
+  ledger:totals.get(normalize(row.name))||0})),tbody=$("results");
  tbody.replaceChildren();
  for(const r of rows){
   const tr=document.createElement("tr");
@@ -101,11 +101,31 @@ function render(){
     input.setAttribute("aria-label",key+" "+r.name);inputs[key]=input;
     tr.children[i].replaceChildren(input);
    }
+   const periodInput=document.createElement("input");periodInput.type="text";periodInput.className="inline-field";
+   periodInput.placeholder="MM/AAAA per variazione";periodInput.setAttribute("aria-label","Periodo attribuzione rettifica");
+   periodInput.title="Se cambi il totale delle ritenute, indica il mese al quale attribuire la differenza";
+   td.append(periodInput);
    tr.children[3].textContent="Calcolata";
    btn.textContent="Conferma";btn.addEventListener("click",()=>{
     const name=normalize(inputs.name.value),ledger=cents(inputs.ledger.value),cu=cents(inputs.cu.value);
     if(!name||!Number.isSafeInteger(ledger)||!Number.isSafeInteger(cu)||ledger<0||cu<0){$("status").textContent="Controlla nominativo e importi.";return}
-    overrides.set(r.key,{name,ledger,cu});editingCu=null;$("review").checked=false;invalidateTree();render();
+    const delta=ledger-r.ledger;
+    if(delta!==0){
+     const period=periodInput.value.trim();
+     if(!/^(0[1-9]|1[0-2])\/20\d{2}$/.test(period)){
+      $("status").textContent="Per modificare il totale delle ritenute devi indicare il periodo MM/AAAA. Nessuna rettifica applicata.";return;
+     }
+     const candidate=ledgerState.find(x=>!x.excluded&&normalize(x.name)===normalize(r.key)&&x.period===period);
+     if(candidate){
+      if(candidate.amount+delta<0){$("status").textContent="La rettifica renderebbe negativo il movimento: modifica prima il dettaglio.";return}
+      candidate.amount+=delta;candidate.edited=true;
+     }else{
+      if(delta<0){$("status").textContent="Non esiste una ritenuta nel periodo da ridurre: modifica prima il dettaglio.";return}
+      ledgerState.push({id:"adjustment-"+(++ledgerSeq),source:null,name:r.key,code:"1040",
+       date:"01/"+period.slice(0,2)+"/"+period.slice(-2),period,amount:delta,excluded:false,edited:true});
+     }
+    }
+    overrides.set(r.key,{name,cu});editingCu=null;$("review").checked=false;invalidateTree();
    });
    const cancel=document.createElement("button");cancel.textContent="Annulla";cancel.className="secondary";
    cancel.addEventListener("click",()=>{editingCu=null;render()});td.append(btn,cancel);
