@@ -1,9 +1,9 @@
 <!doctype html>
 <html lang="it"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>770 Autonomi</title><link rel="stylesheet" href="./style.css"></head>
 <body><main><header><small>STRUMENTI FISCALI · VERSIONE DI SVILUPPO</small><h1>770 Autonomi</h1><p>Riconciliazione lavoro autonomo e provvigioni · Elaborazione dei documenti nel browser</p></header>
-<section><h2>1. Acquisizione listati</h2><label>Anno d'imposta <select id="year"><option>2025</option><option>2026</option><option>2024</option></select></label>
+<section><h2>1. Acquisizione listati</h2><label>Codice fiscale / Partita IVA sostituto d’imposta <input id="taxpayer" maxlength="16" placeholder="11 cifre o CF di 16 caratteri" autocomplete="off"></label><label>Anno d'imposta <select id="year"><option>2025</option><option>2026</option><option>2024</option></select></label>
 <div class="uploads"><label>Listato ritenute gestionale<input id="ledger" type="file" accept=".pdf"></label><label>Brogliaccio CU (prima pagina)<input id="cu" type="file" accept=".pdf"></label><label>Listato F24<input id="f24" type="file" accept=".pdf"></label></div>
-<button id="check">Leggi documenti e riconcilia</button><p id="status" role="status"></p></section>
+<button id="check">Leggi documenti e riconcilia</button><p id="identity" role="status"></p><p id="status" role="status"></p></section>
 <section><h2>2. Riconciliazione gestionale / CU</h2><p id="summary">Carica i primi due PDF per eseguire il confronto.</p>
 <div class="scroll"><table><thead><tr><th>Percipiente</th><th>Gestionale</th><th>CU</th><th>Differenza</th><th>Azioni</th></tr></thead><tbody id="results"></tbody></table></div>
 <div class="actions"><button id="reset" disabled>Ripristina rettifiche</button><button id="export" disabled>Esporta controllo CSV</button></div>
