@@ -139,7 +139,7 @@ function f24Render(){
   input.title="Interessi ipotizzati; modificabili. Non costituiscono classificazione automatica certa.";
   input.addEventListener("change",()=>{
    const raw=input.value.trim();
-   if(!/^\\d+(?:\\.\\d{1,2})?$/.test(raw)){alert("Importo interessi non valido");input.value=(interest/100).toFixed(2);return}
+   if(!/^[0-9]+(?:[.][0-9]{1,2})?$/.test(raw)){alert("Importo interessi non valido");input.value=(interest/100).toFixed(2);return}
    const amount=Math.round(Number(raw)*100);
    if(!Number.isSafeInteger(amount)||amount<0){alert("Importo non valido");return}
    interestOverrides.set(r.key,amount);f24Render();
