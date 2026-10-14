@@ -244,7 +244,7 @@ function renderF24Movements(){
    });
    actions.append(picker,assign);
    const exclude=document.createElement("button");exclude.className="secondary";
-   exclude.textContent=row.excluded?"Ripristina":"Escludi";
+   exclude.textContent=row.excluded?"Ripristina":"Elimina";
    exclude.addEventListener("click",()=>{
     row.excluded=!row.excluded;row.edited=true;invalidateAfterF24Change();f24Render();
    });actions.append(exclude);
