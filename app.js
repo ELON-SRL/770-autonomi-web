@@ -1,4 +1,5 @@
 "use strict";
+import {ravvedimentoGroups} from "./ravvedimenti.js";
 import {parseF24Pages,reconcile,euro as f24Euro,moneyCents as f24Cents} from "./f24_ade.js";
 import * as pdfjs from "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.10.38/pdf.min.mjs";
 pdfjs.GlobalWorkerOptions.workerSrc="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.10.38/pdf.worker.min.mjs";
@@ -158,6 +159,16 @@ $("readf24").addEventListener("click",async()=>{
   const missing=selected.filter(r=>!r.month);
   $("f24status").textContent="PDF AdE: "+pdf.numPages+" pagine; "+f24Rows.length+" righe totali; "+selected.length+" con anno "+year+"; "+missing.length+" senza mese; "+parsed.rejected.length+" righe da verificare. I tributi non pertinenti non sono automaticamente esclusi: confronta solo i codici delle ritenute.";
   f24Render();
+  const rav=ravvedimentoGroups(f24Rows,$("year").value);
+  const target=$("ravrows");target.replaceChildren();
+  for(const g of rav){
+   const tr=document.createElement("tr");
+   for(const val of [g.date,g.period+"/"+g.year,f24Euro(g.tributo),f24Euro(g.sanzione),g.sanzione?"Sanzione presente; verificare interessi":"Nessuna sanzione associata"]){
+    const td=document.createElement("td");td.textContent=val;tr.append(td);
+   }
+   target.append(tr);
+  }
+  $("ravstatus").textContent=rav.length+" gruppi 1040/8948 individuati. Gli interessi eventualmente compresi nel 1040 non sono ancora distinguibili automaticamente.";
  }catch(e){$("f24status").textContent="Errore F24: "+e.message}
  finally{$("readf24").disabled=false}
 });
