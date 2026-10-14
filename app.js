@@ -420,3 +420,16 @@ $("printSt").addEventListener("click",()=>{
  if($("stPrint").hidden){$("printStatus").textContent="Prepara prima l'anteprima.";return}
  window.print();
 });
+
+$("exportMovements").addEventListener("click",()=>{
+ const rows=[...f24Rows,...f24Manual];
+ if(!rows.length){$("f24status").textContent="Nessun movimento da esportare.";return}
+ const safe=value=>'"'+String(value??"").replace(/"/g,'""')+'"';
+ const header=["Data originale","Data utilizzata","Tributo originale","Tributo utilizzato","Periodo originale","Periodo attribuito","Debito originale","Debito utilizzato","Credito originale","Credito utilizzato","Escluso","Rettificato","Fonte"];
+ const data=rows.map(r=>{
+  const o=r.original||r;
+  return [o.date,r.date,o.code,r.code,(o.month||o.period||"")+"/"+o.year,(r.assignedMonth??r.month??"")+"/"+(r.assignedYear??r.year),f24Euro(o.debit),f24Euro(r.debit),f24Euro(o.credit),f24Euro(r.credit),r.excluded?"SI":"NO",r.edited?"SI":"NO",r.source].map(safe).join(";");
+ });
+ const blob=new Blob(["\ufeff"+[header.map(safe).join(";"),...data].join("\r\n")],{type:"text/csv;charset=utf-8"});
+ const link=document.createElement("a");link.href=URL.createObjectURL(blob);link.download="770-movimenti-F24-rettifiche.csv";link.click();setTimeout(()=>URL.revokeObjectURL(link.href),1000);
+});
