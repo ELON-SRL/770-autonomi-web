@@ -222,35 +222,39 @@ function f24Render(){
  const year=$("year").value,rows=reconcile(ledgerRows,usableF24([...f24Rows,...f24Manual]),year);
  for(const r of rows){
   const tr=document.createElement("tr");
-  for(const value of [r.code,r.month+"/"+r.year,f24Euro(r.expected),f24Euro(r.paid),f24Euro(r.difference)]){
-   const td=document.createElement("td");td.textContent=value;tr.append(td);
-  }
-  tr.children[4].className=r.difference?"mismatch":"match";
-  // Solo eccedenze positive: proposta di interessi, NON accertamento fiscale.
-  const proposed=Math.max(0,r.difference);
+  const status=r.status==="DA_ATTRIBUIRE"?"F24 da attribuire":r.status==="NON_VERSATO"?"Ritenuta non versata":r.difference===0?"Quadrato":"Differenza da verificare";
+  const values=[r.code,r.month+"/"+r.year,f24Euro(r.expected),f24Euro(r.paid),r.difference===null?status:f24Euro(r.difference)];
+  for(const value of values){const td=document.createElement("td");td.textContent=value;tr.append(td)}
+  tr.children[4].className=r.difference===null?"mismatch":r.difference?"mismatch":"match";
+  const proposed=r.status==="CONFRONTABILE"?Math.max(0,r.difference):0;
   const interest=interestOverrides.has(r.key)?interestOverrides.get(r.key):proposed;
   const cell=document.createElement("td"),input=document.createElement("input");
   input.type="number";input.step="0.01";input.min="0";input.value=(interest/100).toFixed(2);
-  input.title="Interessi ipotizzati; modificabili. Non costituiscono classificazione automatica certa.";
+  input.disabled=r.status!=="CONFRONTABILE";
+  input.title=r.status==="CONFRONTABILE"?"Interessi ipotizzati da verificare":"Non proporre interessi su movimenti non abbinati";
   input.addEventListener("change",()=>{
    const raw=input.value.trim();
-   if(!/^[0-9]+(?:[.][0-9]{1,2})?$/.test(raw)){alert("Importo interessi non valido");input.value=(interest/100).toFixed(2);return}
+   if(!/^[0-9]+(?:[.][0-9]{1,2})?$/.test(raw)){alert("Importo interessi non valido");return}
    const amount=Math.round(Number(raw)*100);
-   if(!Number.isSafeInteger(amount)||amount<0){alert("Importo non valido");return}
+   if(!Number.isSafeInteger(amount)||amount<0)return;
    interestOverrides.set(r.key,amount);f24Render();
   });
   cell.append(input);tr.append(cell);
-  const residual=document.createElement("td");residual.textContent=f24Euro(r.difference-interest);
-  residual.className=r.difference-interest?"mismatch":"match";tr.append(residual);
+  const residual=document.createElement("td");
+  residual.textContent=r.difference===null?"Da verificare":f24Euro(r.difference-interest);
+  residual.className=r.difference===null||r.difference-interest?"mismatch":"match";
+  tr.append(residual);
   const detail=document.createElement("td"),btn=document.createElement("button");
   btn.textContent=r.payments.length+" F24 · Dettaglio";
-  btn.addEventListener("click",()=>alert(r.payments.length?r.payments.map(p=>p.date+" · "+f24Euro(p.debit)+" € · "+p.source).join("\\n"):"Nessun F24 associato"));
+  btn.addEventListener("click",()=>alert(r.payments.length?r.payments.map(p=>p.date+" · "+f24Euro(p.debit)+" € · "+p.source).join("\n"):"Nessun F24 associato"));
   detail.append(btn);tr.append(detail);tbody.append(tr);
  }
  $("exportf24").disabled=!rows.length;
- const total=rows.reduce((s,r)=>s+r.difference,0);
+ const total=rows.reduce((s,r)=>s+(r.difference??0),0);
+ const unassigned=rows.filter(r=>r.status==="DA_ATTRIBUIRE").length;
+ const unpaid=rows.filter(r=>r.status==="NON_VERSATO").length;
  const previous=$("f24status").textContent.split(" · Periodi:")[0];
- $("f24status").textContent=previous+(rows.length?" · Periodi: "+rows.length+" · Differenza lorda F24 - ritenute: "+f24Euro(total)+" €":" · Nessun periodo disponibile");
+ $("f24status").textContent=previous+" · Periodi: "+rows.length+" · F24 da attribuire: "+unassigned+" · Periodi non versati: "+unpaid+" · Differenza sui soli periodi confrontabili: "+f24Euro(total)+" €";
 }
 $("readf24").addEventListener("click",async()=>{
  const file=$("f24").files[0];
@@ -310,7 +314,7 @@ $("replacef24").addEventListener("click",()=>{
 });
 $("exportf24").addEventListener("click",()=>{
  const rows=reconcile(ledgerRows,usableF24([...f24Rows,...f24Manual]),$("year").value);
- const csv=["Tributo;Periodo;Ritenute;Versato;Differenza lorda;Interessi ipotizzati;Residuo;Numero F24",...rows.map(r=>{const interest=interestOverrides.has(r.key)?interestOverrides.get(r.key):Math.max(0,r.difference);return [r.code,r.month+"/"+r.year,f24Euro(r.expected),f24Euro(r.paid),f24Euro(r.difference),f24Euro(interest),f24Euro(r.difference-interest),r.payments.length].join(";")})].join("\r\n");
+ const csv=["Tributo;Periodo;Ritenute;Versato;Differenza lorda;Interessi ipotizzati;Residuo;Numero F24",...rows.map(r=>{const interest=interestOverrides.has(r.key)?interestOverrides.get(r.key):Math.max(0,r.difference??0);return [r.code,r.month+"/"+r.year,f24Euro(r.expected),f24Euro(r.paid),r.difference===null?r.status:f24Euro(r.difference),f24Euro(interest),r.difference===null?"":f24Euro(r.difference-interest),r.payments.length].join(";")})].join("\r\n");
  const blob=new Blob(["\ufeff"+csv],{type:"text/csv;charset=utf-8"});
  const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="770-quadratura-f24.csv";a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000);
 });
