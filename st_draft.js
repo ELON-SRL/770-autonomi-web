@@ -24,7 +24,7 @@ export function buildStDraft(ledger,payments,year,options={}){
   // No automatic allocation of monthly withheld amounts across separate payment dates.
   rows.push({
    id:g.key,point1:g.month+"/"+y,point2:null,point6:0,point7:g.amount,
-   point8:0,point9:false,point10:g.notes,point11:g.code,point14:g.date,point15:"",point16:"",
+   point8:0,point9:false,point10:g.notes,point11:g.code,point14:g.date,point15:"",point16:0,
    paymentCount:g.payments.length,origin:"F24",reviewed:false,
    issue:"Attribuire e verificare le ritenute del punto 2; interessi, note e ravvedimento da verificare"
   });
@@ -41,6 +41,7 @@ export function validateStRow(r){
  const errors=[];
  if(!/^(0[1-9]|1[0-2])\/20\d{2}$/.test(r.point1))errors.push("Periodo non valido");
  if(!/^\d{4}$/.test(r.point11))errors.push("Codice tributo non valido");
+ if(r.origin==="F24"&&!r.point14)errors.push("Data versamento ST14 obbligatoria per rigo F24");
  if(r.point14&&!/^\d{1,2}\/\d{1,2}\/20\d{2}$/.test(r.point14))errors.push("Data versamento non valida");
  for(const key of ["point2","point6","point7","point8"]){
   if(r[key]!==null&&(!Number.isSafeInteger(r[key])||r[key]<0))errors.push(key+" non valido");
