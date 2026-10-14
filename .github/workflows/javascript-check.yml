@@ -23,6 +23,7 @@ jobs:
           node tests/ledger_year.test.mjs
           node tests/manual_reconciliation.test.mjs
           node tests/movement_edits.test.mjs
+          node tests/st_completeness.test.mjs
           node tests/st_draft.test.mjs
           node tests/f24_dates.test.mjs
           node tests/f24_grouping.test.mjs

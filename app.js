@@ -3,7 +3,7 @@ import {link,unlink,syncLinks} from "./manual_reconciliation.js?v=20261014-year"
 import {cloneF24,usableF24,validateF24Change,parseEuros} from "./movement_edits.js";
 import {newLedgerState,activeLedger,ledgerSummary,validateLedger,inLedgerYear} from "./ledger_tree.js?v=20261014-year";
 import {paymentGroupSummary} from "./f24_groups.js";
-import {buildStDraft,validateStRow} from "./st_draft.js";
+import {buildStDraft,validateStRow} from "./st_draft.js?v=20261014-st";
 import {taxId,identify,identifyDetailed,verify} from "./identita.js";
 import {ravvedimentoGroups} from "./ravvedimenti.js";
 import {parseF24Pages,reconcile,euro as f24Euro,moneyCents as f24Cents} from "./f24_ade.js";
@@ -383,7 +383,7 @@ function f24Render(){
    if(!/^[0-9]+(?:[.][0-9]{1,2})?$/.test(raw)){alert("Importo interessi non valido");return}
    const amount=Math.round(Number(raw)*100);
    if(!Number.isSafeInteger(amount)||amount<0)return;
-   interestOverrides.set(r.key,amount);f24Render();
+   interestOverrides.set(r.key,amount);stDraft=[];stInvalidate();stRender();f24Render();
   });
   cell.append(input);tr.append(cell);
   const residual=document.createElement("td");
@@ -598,7 +598,9 @@ function stRender(){
   tr.append(actions);tbody.append(tr);
  }
  const issues=stDraft.filter(r=>!r.excluded).flatMap((r,i)=>validateStRow(r).map(s=>"Rigo "+(i+1)+": "+s));
- $("stStatus").textContent=stDraft.filter(r=>!r.excluded).length+" righi attivi, "+stDraft.filter(r=>r.excluded).length+" esclusi. "+(issues.length?issues.length+" verifiche necessarie: "+issues.slice(0,3).join("; "):"Controlli formali superati; verifica fiscale necessaria.");
+ const activeSt=stDraft.filter(r=>!r.excluded);
+ const stTotals="Ritenute operate nell’anno: "+f24Euro(ledgerRows.reduce((sum,x)=>sum+x.amount,0))+" € · Ritenute proposte ST: "+f24Euro(activeSt.reduce((sum,x)=>sum+(x.point2??0),0))+" € · Ravvedimenti proposti: "+activeSt.filter(x=>x.point9).length+". ";
+ $("stStatus").textContent=stTotals+stDraft.filter(r=>!r.excluded).length+" righi attivi, "+stDraft.filter(r=>r.excluded).length+" esclusi. "+(issues.length?issues.length+" verifiche necessarie: "+issues.slice(0,3).join("; "):"Controlli formali superati; verifica fiscale necessaria.");
  $("exportSt").disabled=!stDraft.some(r=>!r.excluded)||issues.length>0||editingSt!==null||!$("stConfirm").checked;
  $("printControls").hidden=!stDraft.length;
 }
@@ -621,12 +623,12 @@ $("makeSt").addEventListener("click",()=>{
   return;
  }
  const payments=usableF24([...f24Rows,...f24Manual]);
- const result=buildStDraft(ledgerRows,payments,$("year").value,{hasAggregatedCuCorrections:false});
+ const result=buildStDraft(ledgerRows,payments,$("year").value,{hasAggregatedCuCorrections:false,interestByPeriod:Object.fromEntries(interestOverrides)});
  stDraft=result.rows;editingSt=null;stInvalidate();stRender();
  $("stSection").hidden=false;
  $("stStatus").textContent=stDraft.length+" righi ST provvisori generati. "+
   (result.warnings.length?result.warnings.join("; ")+" ":"")+
-  "Verifica e completa i campi mancanti prima della conferma e della stampa.";
+  "Ritenute operate nell’anno: "+f24Euro(ledgerRows.reduce((sum,x)=>sum+x.amount,0))+" € · Ritenute proposte ST: "+f24Euro(stDraft.reduce((sum,x)=>sum+(x.point2??0),0))+" €. Verifica e completa i campi mancanti prima della conferma e della stampa.";
 });
 $("addSt").addEventListener("click",()=>{
  stDraft.push({id:"manual-"+Date.now(),point1:"01/"+$("year").value,point2:null,point6:0,point7:0,point8:0,point9:false,point10:"",point11:"1040",point14:"",point15:"",point16:0,origin:"MANUALE"});

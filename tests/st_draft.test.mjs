@@ -9,8 +9,11 @@ const payments=[
 const result=buildStDraft(ledger,payments,2025);
 assert(result.rows.length===2,"Split by date");
 assert(result.rows.some(r=>r.point7===30000&&r.paymentCount===2),"Merge same date/period/code");
-assert(result.rows.every(r=>r.point2===null),"Never allocate withheld amount automatically across dates");
-assert(validateStRow(result.rows[0]).includes("Punto 2 non attribuito"),"Unallocated ST2 must block confirmation");
+assert(result.rows.every(r=>r.point2===30000),"Balanced installments allocate actual principal once per date");
+const ambiguous=buildStDraft([{...ledger[0],amount:61000}],payments,2025);
+assert(ambiguous.rows.every(r=>r.point2===null),"Unbalanced installments require allocation");
+assert(ambiguous.warnings.some(w=>w.includes("610.00")),"Full withholding stays visible in warnings");
+assert(validateStRow(ambiguous.rows[0]).includes("Punto 2 non attribuito"),"Unallocated ST2 must block confirmation");
 const notes=buildStDraft(ledger,[{...payments[0],notes:"A"},{...payments[1],notes:"B"}],2025);
 assert(notes.rows.length===2,"Different notes must split rows");
 console.log("ST draft tests passed");
