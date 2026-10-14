@@ -3,19 +3,25 @@ export function taxId(value){
  const id=String(value||"").toUpperCase().replace(/\s/g,"");
  return /^(?:[0-9]{11}|[A-Z0-9]{16})$/.test(id)?id:null;
 }
-// Read only labelled identifiers. Do not confuse recipients, intermediary or user with declarant.
+// Extract only labelled identifiers or a recognised document header.
+// Other people's identifiers never establish the declarant's identity.
 export function identifyDetailed(lines){
  const text=(Array.isArray(lines)?lines:[String(lines)]).join(" ").toUpperCase()
-  .replace(/\u00a0/g," ").replace(/\s+/g," ");
+  .replace(/\u00a0/g," ").replace(/\s+/g," ").trim();
  const found=[];
+ const label="(?:CODICE\\s+FISCALE|C\\.?\\s*F\\.?|PARTITA\\s+IVA|P\\.?\\s*(?:IVA|I\\.?V\\.?A\\.?))";
+ const role="(?:SOSTITUTO(?:\\s+D[’'.]IMPOSTA)?|DICHIARANTE|CONTRIBUENTE)";
  const patterns=[
-  {kind:"sostituto",rx:/(?:CODICE\s+FISCALE|C\.?\s*F\.?|PARTITA\s+IVA|P\.?\s*IVA)\s+(?:DEL(?:LA|LO)?\s+)?(?:SOSTITUTO(?:\s+D.IMPOSTA)?|DICHIARANTE|CONTRIBUENTE)\s*[:\-]?\s*([A-Z0-9 ]{11,35})/g},
-  {kind:"generico",rx:/(?:CODICE\s+FISCALE|C\.?\s*F\.?|PARTITA\s+IVA|P\.?\s*IVA)\s*[:\-]?\s*([A-Z0-9 ]{11,35})/g}
+  {kind:"sostituto",rx:new RegExp(label+"\\s+(?:DEL(?:LA|LO)?\\s+)?"+role+"\\s*[:\\-]?\\s*([A-Z0-9 ]{11,35})","g")},
+  {kind:"sostituto",rx:new RegExp(role+"\\s*[:\\-]?\\s*"+label+"\\s*[:\\-]?\\s*([A-Z0-9 ]{11,35})","g")},
+  {kind:"sostituto",rx:/CASSETTO\s+DELEGATO\s+DI\s*:\s*([A-Z0-9 ]{11,35})/g},
+  // Passepartout CU: the first identifier belongs to the company header.
+  {kind:"sostituto",rx:/^([A-Z0-9 ]{11,35}?)\s+AZIENDA\s+\S+\s+MODELLO\s+CU\s+BROGLIACCIO\b/g},
+  {kind:"generico",rx:new RegExp(label+"\\s*[:\\-]?\\s*([A-Z0-9 ]{11,35})","g")}
  ];
  for(const {kind,rx} of patterns){
   for(const m of text.matchAll(rx)){
-   // Read one compact token or 11 separate digits; do not consume arbitrary following words.
-   const segment=m[1],compact=segment.match(/^([A-Z0-9]{11}|[A-Z0-9]{16})(?![A-Z0-9])/);
+   const segment=m[1],compact=segment.match(/^([A-Z0-9]{16}|[0-9]{11})(?![A-Z0-9])/);
    const spaced=segment.match(/^((?:\d\s*){11})(?!\d)/);
    const candidate=compact?.[1]||spaced?.[1].replace(/\s/g,"");
    const id=taxId(candidate);

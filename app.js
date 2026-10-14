@@ -4,7 +4,7 @@ import {cloneF24,usableF24,validateF24Change,parseEuros} from "./movement_edits.
 import {newLedgerState,activeLedger,ledgerSummary,validateLedger,inLedgerYear} from "./ledger_tree.js?v=20261014-year";
 import {paymentGroupSummary} from "./f24_groups.js";
 import {buildStDraft,validateStRow} from "./st_draft.js?v=20261014-st2";
-import {taxId,identify,identifyDetailed,verify} from "./identita.js";
+import {taxId,identify,identifyDetailed,verify} from "./identita.js?v=20261014-cf";
 import {ravvedimentoGroups} from "./ravvedimenti.js";
 import {parseF24Pages,reconcile,euro as f24Euro,moneyCents as f24Cents} from "./f24_ade.js";
 import * as pdfjs from "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.10.38/pdf.min.mjs";
@@ -161,8 +161,9 @@ $("check").addEventListener("click",async()=>{
    const confirmed=found.some(x=>x.id===taxpayer&&x.kind==="sostituto");
    if(confirmed)identityNotes.push(name+": identificativo del sostituto trovato");
    else if(found.some(x=>x.id===taxpayer))identityNotes.push(name+": codice trovato, ruolo da verificare");
+   else if(found.some(x=>x.kind==="sostituto"))identityNotes.push(name+": CF del sostituto diverso da quello della pratica; verifica il documento");
    else if(found.length)identityNotes.push(name+": codici presenti ma sostituto non identificato con certezza");
-   else identityNotes.push(name+": codice fiscale del sostituto assente o non riconosciuto nel testo PDF");
+   else identityNotes.push(name+": CF non riportato nel testo del listato; verifica manualmente l’azienda in intestazione");
   }
   $("identity").textContent=identityNotes.join(" · ")+". Il valore inserito resta quello della pratica; verifica la corrispondenza dei documenti.";
   console.info("770 import diagnostica (senza nominativi)",{righeGestionale:ledger.length,righeCU:cu.length,righeTestoGestionale:ledgerLines.length,righeTestoCU:cuLines.length});
@@ -511,10 +512,12 @@ $("readf24").addEventListener("click",async()=>{
    pages.push(content.items.map(item=>({text:item.str,x:item.transform[4],y:item.transform[5]})));
   }
   const flat=pages.map(p=>p.map(t=>t.text).join(" "));
-  const idsF24=identify(flat),expectedId=taxId($("taxpayer").value);
+  const detailsF24=identifyDetailed(flat),expectedId=taxId($("taxpayer").value);
+  const idsF24=detailsF24.filter(x=>x.kind==="sostituto").map(x=>x.id);
+  const matchingGeneric=detailsF24.some(x=>x.id===expectedId);
   if(!expectedId)throw Error("Indica prima il contribuente.");
   if(idsF24.length&&!idsF24.includes(expectedId))throw Error("Il listato F24 appartiene a un contribuente diverso. Importazione bloccata.");
-  if(!idsF24.length&&!confirm("Identificativo del contribuente non leggibile nel PDF F24. Hai verificato manualmente che sia quello corretto?"))throw Error("Verifica contribuente F24 non confermata.");
+  if(!idsF24.length&&!confirm(matchingGeneric?"Il CF della pratica è presente nel PDF F24, ma il ruolo non è indicato. Hai verificato che sia il contribuente corretto?":"CF del contribuente non individuato nell’intestazione del PDF F24. Hai verificato manualmente che sia quello corretto?"))throw Error("Verifica contribuente F24 non confermata.");
   if(/RITENUTE\s+MATURATE\s+DA\s+VERSARE/i.test(flat.join(" ")))throw Error("Il file selezionato è un listato ritenute gestionali, non un listato F24. Seleziona il PDF dei versamenti Agenzia delle Entrate.");
   const parsed=parseF24Pages(pages);
   if(!parsed.rows.length)throw Error("Nessuna riga F24 riconosciuta nel PDF Agenzia delle Entrate.");

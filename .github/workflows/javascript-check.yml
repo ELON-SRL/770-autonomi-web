@@ -20,6 +20,7 @@ jobs:
           done
       - name: Test correction and ST rules
         run: |
+          node tests/identita.test.mjs
           node tests/ledger_year.test.mjs
           node tests/manual_reconciliation.test.mjs
           node tests/movement_edits.test.mjs
