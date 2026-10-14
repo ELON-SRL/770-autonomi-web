@@ -1,5 +1,6 @@
 "use strict";
 import {cloneF24,usableF24,validateF24Change,parseEuros} from "./movement_edits.js";
+import {newLedgerState,activeLedger,ledgerSummary,validateLedger} from "./ledger_tree.js";
 import {paymentGroupSummary} from "./f24_groups.js";
 import {buildStDraft,validateStRow} from "./st_draft.js";
 import {taxId,identify,verify} from "./identita.js";
@@ -20,7 +21,7 @@ const money=n=>Number(n).toLocaleString("it-IT",{minimumFractionDigits:2,maximum
 const cents=s=>Math.round(Number(String(s).replace(/\./g,"").replace(",","."))*100);
 const display=n=>money(n/100);
 const normalize=s=>String(s).toUpperCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/\s+/g," ").trim();
-let original=[],overrides=new Map(),parseIssues=[],ledgerRows=[],f24Rows=[],f24Manual=[],interestOverrides=new Map(),stDraft=[],editingCu=null,editingF24=null;
+let original=[],overrides=new Map(),parseIssues=[],ledgerRows=[],f24Rows=[],f24Manual=[],interestOverrides=new Map(),stDraft=[],editingCu=null,editingF24=null,ledgerState=[],editingLedger=null;
 function lineText(items){
  const groups=[];
  for(const item of items){
@@ -97,7 +98,7 @@ function render(){
    btn.textContent="Conferma";btn.addEventListener("click",()=>{
     const name=normalize(inputs.name.value),ledger=cents(inputs.ledger.value),cu=cents(inputs.cu.value);
     if(!name||!Number.isSafeInteger(ledger)||!Number.isSafeInteger(cu)||ledger<0||cu<0){$("status").textContent="Controlla nominativo e importi.";return}
-    overrides.set(r.key,{name,ledger,cu});editingCu=null;$("review").checked=false;render();
+    overrides.set(r.key,{name,ledger,cu});editingCu=null;$("review").checked=false;invalidateTree();render();
    });
    const cancel=document.createElement("button");cancel.textContent="Annulla";cancel.className="secondary";
    cancel.addEventListener("click",()=>{editingCu=null;render()});td.append(btn,cancel);
@@ -135,9 +136,9 @@ $("check").addEventListener("click",async()=>{
   }
   console.info("770 import diagnostica (senza nominativi)",{righeGestionale:ledger.length,righeCU:cu.length,righeTestoGestionale:ledgerLines.length,righeTestoCU:cuLines.length});
   if(!ledger.length||!cu.length)throw new Error(`Formato PDF non riconosciuto (movimenti: ${ledger.length}; CU: ${cu.length}). Serve adattare il lettore al testo estratto; nessun dato è stato riconciliato.`);
-  ledgerRows=ledger;f24Rows=[];f24Manual=[];interestOverrides.clear();original=aggregate(ledger,cu);overrides.clear();$("review").checked=false;$("phase2").hidden=true;
+  ledgerState=newLedgerState(ledger);ledgerRows=activeLedger(ledgerState);f24Rows=[];f24Manual=[];interestOverrides.clear();original=aggregate(ledger,cu);overrides.clear();$("review").checked=false;$("phase2").hidden=true;
   $("status").textContent=`Acquisite ${ledger.length} righe gestionali e ${cu.length} righe CU. Verifica i totali prima di confermare.`;
-  render();
+  render();renderLedgerTree();
  }catch(err){$("status").textContent="Importazione non completata: "+err.message}
  finally{$("check").disabled=false}
 });
@@ -215,6 +216,65 @@ function renderRavvedimenti(){
  }
  $("ravstatus").textContent=groups.length+" gruppi di versamento 1040/8948; data ereditata dalle righe senza data. Nessun importo sommato due volte.";
 }
+function invalidateTree(){
+ ledgerRows=activeLedger(ledgerState);
+ $("review").checked=false;
+ $("f24review").checked=false;
+ $("stSection").hidden=true;
+ stDraft=[];editingSt=null;stInvalidate();
+ if(!$("phase2").hidden)f24Render();
+}
+function renderLedgerTree(){
+ const body=$("ledgerMovements");body.replaceChildren();
+ for(const r of ledgerState){
+  const tr=document.createElement("tr"),active=editingLedger===r.id,inputs={};
+  if(r.excluded)tr.className="excluded-row";
+  const fields=["name","code","period","amount"];
+  for(const field of fields){
+   const td=document.createElement("td");
+   if(active){
+    const input=document.createElement("input");input.type="text";input.className="inline-field";
+    input.value=field==="amount"?f24Euro(r.amount):String(r[field]);
+    inputs[field]=input;td.append(input);
+   }else td.textContent=field==="amount"?f24Euro(r.amount):String(r[field]);
+   tr.append(td);
+  }
+  const origin=document.createElement("td");origin.textContent=r.source?"Gestionale":"Manuale";tr.append(origin);
+  const td=document.createElement("td"),btn=document.createElement("button");
+  if(active){
+   btn.textContent="Conferma";btn.addEventListener("click",()=>{
+    const raw=inputs.amount.value.trim();
+    if(!/^[0-9]+(?:[.][0-9]{3})*(?:,[0-9]{1,2})?$/.test(raw)){$("status").textContent="Importo ritenuta non valido";return}
+    const proposed={...r,name:normalize(inputs.name.value),code:inputs.code.value.trim(),
+     period:inputs.period.value.trim(),amount:cents(raw)};
+    const errors=validateLedger(proposed);
+    if(errors.length){$("status").textContent="Correggi: "+errors.join(", ");return}
+    Object.assign(r,proposed,{edited:true});editingLedger=null;invalidateTree();renderLedgerTree();render();
+   });
+   const cancel=document.createElement("button");cancel.textContent="Annulla";cancel.className="secondary";
+   cancel.addEventListener("click",()=>{editingLedger=null;renderLedgerTree()});td.append(btn,cancel);
+  }else{
+   btn.textContent="Modifica";btn.addEventListener("click",()=>{editingLedger=r.id;renderLedgerTree()});td.append(btn);
+   const toggle=document.createElement("button");toggle.className="secondary";toggle.textContent=r.excluded?"Ripristina":"Elimina";
+   toggle.addEventListener("click",()=>{r.excluded=!r.excluded;invalidateTree();renderLedgerTree();render()});td.append(toggle);
+  }
+  tr.append(td);body.append(tr);
+ }
+ const summary=$("ledgerPeriods");summary.replaceChildren();
+ for(const group of ledgerSummary(ledgerState)){
+  const tr=document.createElement("tr");
+  for(const val of [group.period,group.code,f24Euro(group.amount),String(group.count)]){
+   const td=document.createElement("td");td.textContent=val;tr.append(td);
+  }
+  summary.append(tr);
+ }
+}
+let ledgerSeq=0;
+$("addLedger").addEventListener("click",()=>{
+ const period="01/"+$("year").value;
+ const r={id:"added-"+(++ledgerSeq),source:null,name:"",code:"1040",period,amount:0,excluded:false,edited:true};
+ ledgerState.push(r);editingLedger=r.id;invalidateTree();renderLedgerTree();
+});
 function f24Render(){
  renderF24Movements();
  renderRavvedimenti();
