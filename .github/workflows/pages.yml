@@ -24,3 +24,5 @@ jobs:
           path: .
       - id: deployment
         uses: actions/deploy-pages@v4
+
+# Redeploy simplified interface after main page replacement
