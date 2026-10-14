@@ -18,3 +18,7 @@ jobs:
           for file in app.js f24_ade.js movement_edits.js ravvedimenti.js st_draft.js identita.js; do
             node --check "$file"
           done
+      - name: Test correction and ST rules
+        run: |
+          node tests/movement_edits.test.mjs
+          node tests/st_draft.test.mjs
