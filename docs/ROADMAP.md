@@ -10,3 +10,6 @@ Repository pubblico con soli dati dimostrativi e codice. Non caricare documenti 
 6. Prospetti ST/SX dopo validazione istruzioni ufficiali 770.
 
 Stato attuale: sola selezione di tre PDF, senza lettura contenuto. GitHub Pages è pubblico; i file selezionati non sono inviati ad alcun server dalla versione attuale.
+
+
+Pubblicazione: GitHub Pages configurato con GitHub Actions; verificare esito del workflow Deploy GitHub Pages.
