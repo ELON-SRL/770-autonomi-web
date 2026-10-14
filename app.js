@@ -699,6 +699,11 @@ $("testImport").addEventListener("change",async()=>{
   const validLedger=data.ledger.every(r=>typeof r.name==="string"&&/^\d{4}$/.test(r.code)&&Number.isSafeInteger(r.amount)&&/^\d{2}\/\d{2}\/\d{2}$/.test(r.date));
   const validF24=data.f24.every(r=>/^\d{4}$/.test(r.code)&&/^\d{1,2}\/\d{1,2}\/20\d{2}$/.test(r.date)&&Number.isSafeInteger(r.debit)&&/^\d{4}$/.test(r.year));
   if(!validLedger||!validF24)throw Error("Movimenti non validi nel file.");
+  const hasExisting=ledgerState.length>0||f24Rows.length>0||f24Manual.length>0;
+  if(hasExisting){
+   const proceed=confirm("ATTENZIONE: il caricamento di questo file sostituirà la lavorazione corrente, comprese tutte le rettifiche e le attribuzioni manuali. Premi Annulla per conservare il lavoro attuale. Vuoi davvero sostituirlo?");
+   if(!proceed){$("status").textContent="Caricamento annullato: lavorazione corrente conservata.";return}
+  }
   $("taxpayer").value=data.taxpayer;
   $("year").value=data.year;
   ledgerState=newLedgerState(data.ledger);
