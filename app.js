@@ -330,6 +330,7 @@ function stRender(){
  const tbody=$("stRows");tbody.replaceChildren();
  for(const row of stDraft){
   const tr=document.createElement("tr"),active=editingSt===row.id,inputs={};
+  if(row.excluded)tr.className="excluded-row";
   for(const field of stFields){
    const td=document.createElement("td"),value=row[field];
    if(active){
@@ -365,11 +366,17 @@ function stRender(){
   }else{
    button.textContent="Modifica";button.addEventListener("click",()=>{editingSt=row.id;stInvalidate();stRender()});actions.append(button);
   }
+  if(!active){
+   const toggle=document.createElement("button");toggle.className="secondary";
+   toggle.textContent=row.excluded?"Ripristina":"Elimina";
+   toggle.addEventListener("click",()=>{row.excluded=!row.excluded;stInvalidate();stRender()});
+   actions.append(toggle);
+  }
   tr.append(actions);tbody.append(tr);
  }
- const issues=stDraft.flatMap((r,i)=>validateStRow(r).map(s=>"Rigo "+(i+1)+": "+s));
- $("stStatus").textContent=stDraft.length+" righi provvisori. "+(issues.length?issues.length+" verifiche necessarie: "+issues.slice(0,3).join("; "):"Controlli formali superati; verifica fiscale necessaria.");
- $("exportSt").disabled=!stDraft.length||issues.length>0||editingSt!==null||!$("stConfirm").checked;
+ const issues=stDraft.filter(r=>!r.excluded).flatMap((r,i)=>validateStRow(r).map(s=>"Rigo "+(i+1)+": "+s));
+ $("stStatus").textContent=stDraft.filter(r=>!r.excluded).length+" righi attivi, "+stDraft.filter(r=>r.excluded).length+" esclusi. "+(issues.length?issues.length+" verifiche necessarie: "+issues.slice(0,3).join("; "):"Controlli formali superati; verifica fiscale necessaria.");
+ $("exportSt").disabled=!stDraft.some(r=>!r.excluded)||issues.length>0||editingSt!==null||!$("stConfirm").checked;
  $("printControls").hidden=!stDraft.length;
 }
 $("f24review").addEventListener("change",()=>{
@@ -405,7 +412,7 @@ $("stConfirm").addEventListener("change",stRender);
 $("exportSt").addEventListener("click",()=>{
  const fields=["point1","point2","point6","point7","point8","point9","point10","point11","point14","point15","point16"];
  const csv=[["ST1 Periodo","ST2 Ritenute","ST6 Crediti","ST7 Versato","ST8 Interessi","ST9 Ravvedimento","ST10 Note","ST11 Tributo","ST14 Data","ST15 Sospensione","ST16 Importo sospeso"].join(";"),
- ...stDraft.map(row=>fields.map(field=>["point2","point6","point7","point8","point16"].includes(field)?(row[field]===null?"":f24Euro(row[field])):field==="point9"?(row[field]?"1":"0"):row[field]).join(";"))].join("\r\n");
+ ...stDraft.filter(row=>!row.excluded).map(row=>fields.map(field=>["point2","point6","point7","point8","point16"].includes(field)?(row[field]===null?"":f24Euro(row[field])):field==="point9"?(row[field]?"1":"0"):row[field]).join(";"))].join("\r\n");
  const blob=new Blob(["\ufeff"+csv],{type:"text/csv;charset=utf-8"});
  const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="770-ST-provvisorio.csv";a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000);
 });
@@ -418,9 +425,9 @@ const stPrintFields=[
 ];
 function printCell(value){const cell=document.createElement("td");cell.textContent=String(value??"");return cell}
 function prepareStPrint(){
- if(!stDraft.length){$("printStatus").textContent="Nessun quadro ST disponibile.";return}
+ if(!stDraft.some(r=>!r.excluded)){$("printStatus").textContent="Nessun quadro ST disponibile.";return}
  if(!$("stConfirm").checked){$("printStatus").textContent="Conferma prima la revisione del quadro ST.";return}
- const errors=stDraft.flatMap((r,i)=>validateStRow(r).map(e=>"Rigo "+(i+1)+": "+e));
+ const errors=stDraft.filter(r=>!r.excluded).flatMap((r,i)=>validateStRow(r).map(e=>"Rigo "+(i+1)+": "+e));
  if(errors.length){$("printStatus").textContent="Stampa non pronta: "+errors.slice(0,3).join("; ");return}
  const target=$("stPrint");target.replaceChildren();
  const heading=document.createElement("header"),title=document.createElement("h1"),sub=document.createElement("p");
@@ -431,14 +438,15 @@ function prepareStPrint(){
  warning.textContent="PROSPETTO DI LAVORO — NON È IL MODELLO MINISTERIALE UFFICIALE. Da verificare prima della trascrizione o dell'utilizzo.";
  target.append(warning);
  const perPage=6;
- for(let start=0;start<stDraft.length;start+=perPage){
+ const printable=stDraft.filter(r=>!r.excluded);
+ for(let start=0;start<printable.length;start+=perPage){
   const sheet=document.createElement("div");sheet.className="st-sheet";
   const table=document.createElement("table");table.className="st-print-table";
   const thead=document.createElement("thead"),headrow=document.createElement("tr");
   for(const [,label] of stPrintFields){const th=document.createElement("th");th.textContent=label;headrow.append(th)}
   thead.append(headrow);table.append(thead);
   const tbody=document.createElement("tbody");
-  for(const row of stDraft.slice(start,start+perPage)){
+  for(const row of printable.slice(start,start+perPage)){
    const tr=document.createElement("tr");
    for(const [key] of stPrintFields){
     let value=row[key];
@@ -450,11 +458,11 @@ function prepareStPrint(){
   }
   table.append(tbody);sheet.append(table);
   const foot=document.createElement("p");foot.className="sheet-foot";
-  foot.textContent="Quadro ST · Pagina "+(Math.floor(start/perPage)+1)+" di "+Math.ceil(stDraft.length/perPage)+" · Prospetto non ministeriale";
+  foot.textContent="Quadro ST · Pagina "+(Math.floor(start/perPage)+1)+" di "+Math.ceil(printable.length/perPage)+" · Prospetto non ministeriale";
   sheet.append(foot);target.append(sheet);
  }
  target.hidden=false;$("printSt").disabled=false;
- $("printStatus").textContent="Anteprima pronta: "+stDraft.length+" righi, "+Math.ceil(stDraft.length/perPage)+" pagine. Usa Stampa / Salva PDF.";
+ $("printStatus").textContent="Anteprima pronta: "+printable.length+" righi, "+Math.ceil(stDraft.length/perPage)+" pagine. Usa Stampa / Salva PDF.";
 }
 $("previewSt").addEventListener("click",prepareStPrint);
 $("printSt").addEventListener("click",()=>{
