@@ -11,9 +11,9 @@ export function newLedgerState(rows){
 }
 export function activeLedger(rows){
  return rows.filter(r=>!r.excluded).map(r=>{
-  const [month,year]=(r.period||"").split("/");
+  const [month,year]=(r.stPeriod||r.period||"").split("/");
   return {name:r.name,code:r.code,date:"01/"+month+"/"+year.slice(-2),amount:r.amount,
-   period:r.period,id:r.id,source:r.source};
+   period:r.stPeriod||r.period,id:r.id,source:r.source};
  });
 }
 export function ledgerSummary(rows){
