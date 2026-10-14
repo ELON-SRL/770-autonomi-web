@@ -219,6 +219,30 @@ function renderF24Movements(){
    cancel.addEventListener("click",()=>{editingF24=null;renderF24Movements()});actions.append(btn,cancel);
   }else{
    btn.textContent="Modifica";btn.addEventListener("click",()=>{editingF24=row.uid;renderF24Movements()});actions.append(btn);
+   const picker=document.createElement("select");picker.className="period-picker";
+   const first=document.createElement("option");first.value="";first.textContent="Attribuisci a…";picker.append(first);
+   const options=new Set(ledgerSummary(ledgerState).map(x=>x.period));
+   const current=(row.assignedMonth??row.month??"")+"/"+(row.assignedYear??row.year);
+   if(current&&current!=="/")options.add(current);
+   for(const period of [...options].sort()){
+    const opt=document.createElement("option");opt.value=period;opt.textContent=period;picker.append(opt);
+   }
+   const other=document.createElement("option");other.value="custom";other.textContent="Altro periodo…";picker.append(other);
+   const assign=document.createElement("button");assign.textContent="Attribuisci";
+   assign.addEventListener("click",()=>{
+    let chosen=picker.value;
+    if(chosen==="custom"){
+     chosen=prompt("Periodo da attribuire MM/AAAA",current)||"";
+    }
+    if(!/^(0[1-9]|1[0-2])\/20\d{2}$/.test(chosen)){
+     $("f24status").textContent="Seleziona un periodo valido.";return;
+    }
+    const [month,year]=chosen.split("/");
+    row.assignedMonth=month;row.assignedYear=year;row.edited=true;
+    invalidateAfterF24Change();f24Render();
+    $("f24status").textContent="Movimento attribuito a "+chosen+"; origine F24 conservata.";
+   });
+   actions.append(picker,assign);
    const exclude=document.createElement("button");exclude.className="secondary";
    exclude.textContent=row.excluded?"Ripristina":"Escludi";
    exclude.addEventListener("click",()=>{
@@ -228,6 +252,25 @@ function renderF24Movements(){
   tr.append(actions);body.append(tr);
  }
 }
+$("resetF24").addEventListener("click",()=>{
+ if(!f24Rows.length&&!f24Manual.length)return;
+ if(!confirm("Ripristinare i movimenti F24 al listato importato? Le attribuzioni e rettifiche F24 saranno annullate e i movimenti manuali rimossi. Il PDF originario rimane invariato."))return;
+ for(const row of f24Rows){
+  if(row.original){
+   Object.assign(row,{
+    date:row.original.date,code:row.original.code,
+    month:row.original.month,year:row.original.year,
+    debit:row.original.debit,credit:row.original.credit
+   });
+  }
+  delete row.assignedMonth;delete row.assignedYear;
+  row.excluded=false;row.edited=false;
+ }
+ f24Manual=[];editingF24=null;interestOverrides.clear();
+ $("f24Audit").hidden=true;
+ invalidateAfterF24Change();f24Render();
+ $("f24status").textContent="Ripristinati i movimenti F24 originali. Riconciliazione ricalcolata.";
+});
 function invalidateAfterF24Change(){
  $("f24review").checked=false;$("stSection").hidden=true;
  stDraft=[];stInvalidate();
