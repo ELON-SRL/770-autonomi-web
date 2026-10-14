@@ -24,3 +24,4 @@ jobs:
           node tests/st_draft.test.mjs
           node tests/f24_dates.test.mjs
           node tests/f24_grouping.test.mjs
+          node tests/unallocated.test.mjs
