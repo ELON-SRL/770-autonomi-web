@@ -167,7 +167,7 @@ $("check").addEventListener("click",async()=>{
   if(!ledger.length||!cu.length)throw new Error(`Formato PDF non riconosciuto (movimenti: ${ledger.length}; CU: ${cu.length}). Serve adattare il lettore al testo estratto; nessun dato è stato riconciliato.`);
   ledgerState=newLedgerState(ledger);ledgerRows=activeLedger(ledgerState);f24Rows=[];f24Manual=[];interestOverrides.clear();original=aggregate(ledger,cu);overrides.clear();$("review").checked=false;$("phase2").hidden=false;
   $("status").textContent=`Acquisite ${ledger.length} righe gestionali e ${cu.length} righe CU. Verifica i totali prima di confermare.`;
-  render();renderLedgerTree();f24Render();
+  render();renderLedgerTree();f24Render();$("stSection").hidden=false;
   if($("f24").files[0])$("readf24").click();
  }catch(err){$("status").textContent="Importazione non completata: "+err.message}
  finally{$("check").disabled=false}
