@@ -1,4 +1,5 @@
 "use strict";
+import {taxId,identify,verify} from "./identita.js";
 import {ravvedimentoGroups} from "./ravvedimenti.js";
 import {parseF24Pages,reconcile,euro as f24Euro,moneyCents as f24Cents} from "./f24_ade.js";
 import * as pdfjs from "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.10.38/pdf.min.mjs";
@@ -99,11 +100,17 @@ function edit(row){
 }
 $("check").addEventListener("click",async()=>{
  const ledgerFile=$("ledger").files[0],cuFile=$("cu").files[0];
+ const taxpayer=taxId($("taxpayer").value);
+ if(!taxpayer){$("status").textContent="Inserisci il codice fiscale o partita IVA del sostituto.";return}
  if(!ledgerFile||!cuFile){$("status").textContent="Seleziona almeno il listato ritenute e il brogliaccio CU.";return}
  $("check").disabled=true;$("status").textContent="Lettura PDF in corso…";
  try{
   const [ledgerLines,cuLines]=await Promise.all([pdfLines(ledgerFile),pdfLines(cuFile,true)]);
   const ledger=parseLedger(ledgerLines),cu=parseCu(cuLines);
+  const ids={Gestionale:identify(ledgerLines),CU:identify(cuLines)};
+  const identity=verify(taxpayer,ids);
+  $("identity").textContent=identity.message;
+  if(!identity.ok)throw new Error(identity.message);
   console.info("770 import diagnostica (senza nominativi)",{righeGestionale:ledger.length,righeCU:cu.length,righeTestoGestionale:ledgerLines.length,righeTestoCU:cuLines.length});
   if(!ledger.length||!cu.length)throw new Error(`Formato PDF non riconosciuto (movimenti: ${ledger.length}; CU: ${cu.length}). Serve adattare il lettore al testo estratto; nessun dato è stato riconciliato.`);
   ledgerRows=ledger;f24Rows=[];f24Manual=[];interestOverrides.clear();original=aggregate(ledger,cu);overrides.clear();$("review").checked=false;$("phase2").hidden=true;
