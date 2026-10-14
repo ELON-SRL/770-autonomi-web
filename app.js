@@ -3,7 +3,7 @@ import {cloneF24,usableF24,validateF24Change,parseEuros} from "./movement_edits.
 import {newLedgerState,activeLedger,ledgerSummary,validateLedger} from "./ledger_tree.js";
 import {paymentGroupSummary} from "./f24_groups.js";
 import {buildStDraft,validateStRow} from "./st_draft.js";
-import {taxId,identify,verify} from "./identita.js";
+import {taxId,identify,identifyDetailed,verify} from "./identita.js";
 import {ravvedimentoGroups} from "./ravvedimenti.js";
 import {parseF24Pages,reconcile,euro as f24Euro,moneyCents as f24Cents} from "./f24_ade.js";
 import * as pdfjs from "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.10.38/pdf.min.mjs";
@@ -153,16 +153,16 @@ $("check").addEventListener("click",async()=>{
  try{
   const [ledgerLines,cuLines]=await Promise.all([pdfLines(ledgerFile),pdfLines(cuFile,true)]);
   const ledger=parseLedger(ledgerLines),cu=parseCu(cuLines);
-  const ids={Gestionale:identify(ledgerLines),CU:identify(cuLines)};
-  const identity=verify(taxpayer,ids);
-  $("identity").textContent=identity.message;
-  if(!identity.ok){
-   const mismatched=Object.values(ids).some(values=>values.length&&!values.includes(taxpayer));
-   if(mismatched)throw new Error(identity.message);
-   const approved=confirm("Il codice fiscale non è stampato in uno o più documenti. Verifica manualmente che appartengano al sostituto indicato. Confermi?");
-   if(!approved)throw new Error("Identità non confermata. Riconciliazione bloccata.");
-   $("identity").textContent="Identità verificata manualmente dall’utente; identificativo non leggibile nei PDF.";
+  const details={Gestionale:identifyDetailed(ledgerLines),CU:identifyDetailed(cuLines)};
+  const identityNotes=[];
+  for(const [name,found] of Object.entries(details)){
+   const confirmed=found.some(x=>x.id===taxpayer&&x.kind==="sostituto");
+   if(confirmed)identityNotes.push(name+": identificativo del sostituto trovato");
+   else if(found.some(x=>x.id===taxpayer))identityNotes.push(name+": codice trovato, ruolo da verificare");
+   else if(found.length)identityNotes.push(name+": codici presenti ma sostituto non identificato con certezza");
+   else identityNotes.push(name+": codice fiscale del sostituto assente o non riconosciuto nel testo PDF");
   }
+  $("identity").textContent=identityNotes.join(" · ")+". Il valore inserito resta quello della pratica; verifica la corrispondenza dei documenti.";
   console.info("770 import diagnostica (senza nominativi)",{righeGestionale:ledger.length,righeCU:cu.length,righeTestoGestionale:ledgerLines.length,righeTestoCU:cuLines.length});
   if(!ledger.length||!cu.length)throw new Error(`Formato PDF non riconosciuto (movimenti: ${ledger.length}; CU: ${cu.length}). Serve adattare il lettore al testo estratto; nessun dato è stato riconciliato.`);
   ledgerState=newLedgerState(ledger);ledgerRows=activeLedger(ledgerState);f24Rows=[];f24Manual=[];interestOverrides.clear();original=aggregate(ledger,cu);overrides.clear();$("review").checked=false;$("phase2").hidden=false;
