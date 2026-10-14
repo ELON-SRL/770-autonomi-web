@@ -3,20 +3,28 @@ export function taxId(value){
  const id=String(value||"").toUpperCase().replace(/\s/g,"");
  return /^(?:[0-9]{11}|[A-Z0-9]{16})$/.test(id)?id:null;
 }
-export function identify(lines){
- const all=lines.join(" ");
- // Explicit legal identifiers only; never use company codes, recipient IDs or Entratel 'Utente'.
- const matches=[];
+// Read only labelled identifiers. Do not confuse recipients, intermediary or user with declarant.
+export function identifyDetailed(lines){
+ const text=(Array.isArray(lines)?lines:[String(lines)]).join(" ").toUpperCase()
+  .replace(/\u00a0/g," ").replace(/\s+/g," ");
+ const found=[];
  const patterns=[
-  /(?:CODICE\s+FISCALE|C\.?F\.?)\s*(?:DEL\s+(?:CONTRIBUENTE|SOSTITUTO))?\s*[:\-]?\s*([A-Z0-9]{11,16})/gi,
-  /(?:PARTITA\s+IVA|P\.?IVA)\s*[:\-]?\s*([0-9]{11})/gi,
-  /(?:DEL\s+CONTRIBUENTE)\s+([0-9]{11})\s*-/gi
+  {kind:"sostituto",rx:/(?:CODICE\s+FISCALE|C\.?\s*F\.?|PARTITA\s+IVA|P\.?\s*IVA)\s+(?:DEL(?:LA|LO)?\s+)?(?:SOSTITUTO(?:\s+D.IMPOSTA)?|DICHIARANTE|CONTRIBUENTE)\s*[:\-]?\s*([A-Z0-9 ]{11,35})/g},
+  {kind:"generico",rx:/(?:CODICE\s+FISCALE|C\.?\s*F\.?|PARTITA\s+IVA|P\.?\s*IVA)\s*[:\-]?\s*([A-Z0-9 ]{11,35})/g}
  ];
- for(const pattern of patterns){
-  for(const m of all.matchAll(pattern)){const id=taxId(m[1]);if(id)matches.push(id)}
+ for(const {kind,rx} of patterns){
+  for(const m of text.matchAll(rx)){
+   // Read one compact token or 11 separate digits; do not consume arbitrary following words.
+   const segment=m[1],compact=segment.match(/^([A-Z0-9]{11}|[A-Z0-9]{16})(?![A-Z0-9])/);
+   const spaced=segment.match(/^((?:\d\s*){11})(?!\d)/);
+   const candidate=compact?.[1]||spaced?.[1].replace(/\s/g,"");
+   const id=taxId(candidate);
+   if(id&&!found.some(x=>x.id===id&&x.kind===kind))found.push({id,kind});
+  }
  }
- return [...new Set(matches)];
+ return found;
 }
+export function identify(lines){return [...new Set(identifyDetailed(lines).map(x=>x.id))]}
 export function verify(expected,documents){
  const id=taxId(expected);
  if(!id)return {ok:false,message:"Inserisci un codice fiscale/partita IVA valido del sostituto."};
@@ -25,7 +33,7 @@ export function verify(expected,documents){
   if(!ids.length)unknown.push(name);
   else if(!ids.includes(id))mismatches.push(name);
  }
- if(mismatches.length)return {ok:false,message:"Contribuente diverso nei documenti: "+mismatches.join(", ")+". Riconciliazione bloccata."};
- if(unknown.length)return {ok:false,message:"Identificativo non verificabile in: "+unknown.join(", ")+". Occorre verifica esplicita prima di procedere."};
- return {ok:true,message:"Identificativo del sostituto verificato nei documenti."};
+ if(mismatches.length)return {ok:false,message:"Identificativo differente in: "+mismatches.join(", ")+". Verificare il soggetto prima di proseguire."};
+ if(unknown.length)return {ok:false,message:"Identificativo non verificabile in: "+unknown.join(", ")+". Verifica manuale necessaria."};
+ return {ok:true,message:"Identificativo rilevato nei documenti."};
 }
