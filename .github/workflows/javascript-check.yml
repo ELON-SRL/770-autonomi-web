@@ -22,3 +22,4 @@ jobs:
         run: |
           node tests/movement_edits.test.mjs
           node tests/st_draft.test.mjs
+          node tests/f24_dates.test.mjs
