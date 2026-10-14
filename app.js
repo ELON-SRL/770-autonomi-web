@@ -1,4 +1,5 @@
 "use strict";
+import {parseF24,reconcile,euro as f24Euro,cents as f24Cents} from "./f24.js";
 import * as pdfjs from "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.10.38/pdf.min.mjs";
 pdfjs.GlobalWorkerOptions.workerSrc="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.10.38/pdf.worker.min.mjs";
 
@@ -13,7 +14,7 @@ const money=n=>Number(n).toLocaleString("it-IT",{minimumFractionDigits:2,maximum
 const cents=s=>Math.round(Number(String(s).replace(/\./g,"").replace(",","."))*100);
 const display=n=>money(n/100);
 const normalize=s=>String(s).toUpperCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/\s+/g," ").trim();
-let original=[],overrides=new Map(),parseIssues=[];
+let original=[],overrides=new Map(),parseIssues=[],ledgerRows=[],f24Rows=[],f24Manual=[];
 function lineText(items){
  const groups=[];
  for(const item of items){
@@ -104,7 +105,7 @@ $("check").addEventListener("click",async()=>{
   const ledger=parseLedger(ledgerLines),cu=parseCu(cuLines);
   console.info("770 import diagnostica (senza nominativi)",{righeGestionale:ledger.length,righeCU:cu.length,righeTestoGestionale:ledgerLines.length,righeTestoCU:cuLines.length});
   if(!ledger.length||!cu.length)throw new Error(`Formato PDF non riconosciuto (movimenti: ${ledger.length}; CU: ${cu.length}). Serve adattare il lettore al testo estratto; nessun dato è stato riconciliato.`);
-  original=aggregate(ledger,cu);overrides.clear();$("review").checked=false;$("phase2").hidden=true;
+  ledgerRows=ledger;f24Rows=[];f24Manual=[];original=aggregate(ledger,cu);overrides.clear();$("review").checked=false;$("phase2").hidden=true;
   $("status").textContent=`Acquisite ${ledger.length} righe gestionali e ${cu.length} righe CU. Verifica i totali prima di confermare.`;
   render();
  }catch(err){$("status").textContent="Importazione non completata: "+err.message}
@@ -118,4 +119,56 @@ $("export").addEventListener("click",()=>{
  const csv=["Percipiente;Ritenuta gestionale;Ritenuta CU;Differenza;Rettificata",...rows.map(r=>[r.name,display(r.ledger),display(r.cu),display(r.ledger-r.cu),overrides.has(r.name)?"SI":"NO"].join(";"))].join("\r\n");
  const blob=new Blob(["\ufeff"+csv],{type:"text/csv;charset=utf-8"});
  const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="770-controllo-cu.csv";a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000);
+});
+
+function f24Render(){
+ const tbody=$("f24rows");tbody.replaceChildren();
+ const year=$("year").value,rows=reconcile(ledgerRows,[...f24Rows,...f24Manual],year);
+ for(const r of rows){
+  const tr=document.createElement("tr");
+  for(const value of [r.code,r.month+"/"+r.year,f24Euro(r.expected),f24Euro(r.paid),f24Euro(r.difference)]){
+   const td=document.createElement("td");td.textContent=value;tr.append(td);
+  }
+  tr.children[4].className=r.difference?"mismatch":"match";
+  const detail=document.createElement("td"),btn=document.createElement("button");
+  btn.textContent=r.payments.length+" F24 · Dettaglio";
+  btn.addEventListener("click",()=>alert(r.payments.length?r.payments.map(p=>p.date+" · "+f24Euro(p.debit)+" € · "+p.source).join("\n"):"Nessun F24 associato"));
+  detail.append(btn);tr.append(detail);tbody.append(tr);
+ }
+ $("exportf24").disabled=!rows.length;
+ const total=rows.reduce((s,r)=>s+r.difference,0);
+ $("f24status").textContent+= (rows.length?" · Periodi: "+rows.length+" · Differenza complessiva F24 - ritenute: "+f24Euro(total)+" €":" · Nessun periodo disponibile");
+}
+$("readf24").addEventListener("click",async()=>{
+ const file=$("f24").files[0];
+ if(!file){$("f24status").textContent="Seleziona prima il PDF F24.";return}
+ $("readf24").disabled=true;$("f24status").textContent="Lettura F24 in corso…";
+ try{
+  const lines=await pdfLines(file);
+  const parsed=parseF24(lines);
+  if(!parsed.rows.length)throw Error("Nessuna riga F24 riconosciuta: formato da calibrare. Nessun importo inventato.");
+  f24Rows=parsed.rows;
+  $("f24status").textContent="Righe F24 riconosciute: "+f24Rows.length+"; righe potenzialmente non lette: "+parsed.rejected.length+". Controlla la completezza.";
+  f24Render();
+ }catch(e){$("f24status").textContent="Errore F24: "+e.message}
+ finally{$("readf24").disabled=false}
+});
+$("addf24").addEventListener("click",()=>{
+ const code=prompt("Codice tributo (4 cifre)","1040");if(code===null)return;
+ if(!/^\d{4}$/.test(code)){alert("Codice tributo non valido");return}
+ const period=prompt("Periodo MM/AAAA","03/"+$("year").value);if(period===null)return;
+ const match=period.match(/^(0[1-9]|1[0-2])\/(20\d{2})$/);if(!match){alert("Periodo non valido");return}
+ const date=prompt("Data versamento GG/MM/AAAA","16/04/"+$("year").value);if(date===null)return;
+ if(!/^\d{2}\/\d{2}\/20\d{2}$/.test(date)){alert("Data non valida");return}
+ const value=prompt("Importo a debito (€)","0,00");if(value===null)return;
+ const debit=f24Cents(value);if(!Number.isFinite(debit)||debit<0){alert("Importo non valido");return}
+ f24Manual.push({code,month:match[1],year:match[2],date,debit,credit:0,source:"MANUALE"});
+ $("f24status").textContent="Inserimento manuale registrato per la sessione (non verificato con quietanza).";
+ f24Render();
+});
+$("exportf24").addEventListener("click",()=>{
+ const rows=reconcile(ledgerRows,[...f24Rows,...f24Manual],$("year").value);
+ const csv=["Tributo;Periodo;Ritenute;Versato;Differenza;Numero F24",...rows.map(r=>[r.code,r.month+"/"+r.year,f24Euro(r.expected),f24Euro(r.paid),f24Euro(r.difference),r.payments.length].join(";"))].join("\r\n");
+ const blob=new Blob(["\ufeff"+csv],{type:"text/csv;charset=utf-8"});
+ const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="770-quadratura-f24.csv";a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000);
 });
