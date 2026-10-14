@@ -110,7 +110,13 @@ $("check").addEventListener("click",async()=>{
   const ids={Gestionale:identify(ledgerLines),CU:identify(cuLines)};
   const identity=verify(taxpayer,ids);
   $("identity").textContent=identity.message;
-  if(!identity.ok)throw new Error(identity.message);
+  if(!identity.ok){
+   const mismatched=Object.values(ids).some(values=>values.length&&!values.includes(taxpayer));
+   if(mismatched)throw new Error(identity.message);
+   const approved=confirm("Il codice fiscale non è stampato in uno o più documenti. Verifica manualmente che appartengano al sostituto indicato. Confermi?");
+   if(!approved)throw new Error("Identità non confermata. Riconciliazione bloccata.");
+   $("identity").textContent="Identità verificata manualmente dall’utente; identificativo non leggibile nei PDF.";
+  }
   console.info("770 import diagnostica (senza nominativi)",{righeGestionale:ledger.length,righeCU:cu.length,righeTestoGestionale:ledgerLines.length,righeTestoCU:cuLines.length});
   if(!ledger.length||!cu.length)throw new Error(`Formato PDF non riconosciuto (movimenti: ${ledger.length}; CU: ${cu.length}). Serve adattare il lettore al testo estratto; nessun dato è stato riconciliato.`);
   ledgerRows=ledger;f24Rows=[];f24Manual=[];interestOverrides.clear();original=aggregate(ledger,cu);overrides.clear();$("review").checked=false;$("phase2").hidden=true;
@@ -175,6 +181,11 @@ $("readf24").addEventListener("click",async()=>{
    const p=await pdf.getPage(i),content=await p.getTextContent();
    pages.push(content.items.map(item=>({text:item.str,x:item.transform[4],y:item.transform[5]})));
   }
+  const flat=pages.map(p=>p.map(t=>t.text).join(" "));
+  const idsF24=identify(flat),expectedId=taxId($("taxpayer").value);
+  if(!expectedId)throw Error("Indica prima il contribuente.");
+  if(idsF24.length&&!idsF24.includes(expectedId))throw Error("Il listato F24 appartiene a un contribuente diverso. Importazione bloccata.");
+  if(!idsF24.length&&!confirm("Identificativo del contribuente non leggibile nel PDF F24. Hai verificato manualmente che sia quello corretto?"))throw Error("Verifica contribuente F24 non confermata.");
   const parsed=parseF24Pages(pages);
   if(!parsed.rows.length)throw Error("Nessuna riga F24 riconosciuta nel PDF Agenzia delle Entrate.");
   f24Rows=parsed.rows;
