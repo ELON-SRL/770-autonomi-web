@@ -131,8 +131,31 @@ function renderBalance(){
    addButton("Elimina",()=>{
     excludeSummary(state,r.key);editingBalance=null;invalidate();render();
    });
+   if([...state.withholdings,...state.payments].some(x=>x.excluded&&x.code+"|"+x.period===r.key)){
+    addButton("Ripristina",()=>{
+     for(const item of [...state.withholdings,...state.payments])if(item.code+"|"+item.period===r.key)item.excluded=false;
+     invalidate();render();
+    });
+   }
   }
   tr.append(actions);body.append(tr);
+ }
+ const activeKeys=new Set(rows.map(r=>r.key));
+ const excluded=summaries(
+  state.withholdings.filter(x=>x.excluded).map(x=>({...x,excluded:false})),
+  state.payments.filter(x=>x.excluded).map(x=>({...x,excluded:false}))
+ ).filter(r=>!activeKeys.has(r.key));
+ for(const r of excluded){
+  const tr=document.createElement("tr");tr.className="excluded-row";
+  for(const value of [r.code,r.period,fmt(r.withheld),fmt(r.paid),"Escluso"]){
+   const td=document.createElement("td");td.textContent=value;tr.append(td);
+  }
+  const td=document.createElement("td"),button=document.createElement("button");
+  button.textContent="Ripristina";button.onclick=()=>{
+   for(const item of [...state.withholdings,...state.payments])if(item.code+"|"+item.period===r.key)item.excluded=false;
+   invalidate();render();
+  };
+  td.append(button);tr.append(td);body.append(tr);
  }
  $("balanceStatus").textContent=rows.length+" periodi · "+rows.filter(r=>r.withheld!==r.paid).length+" con differenze. Modifica ed Elimina agiscono sui movimenti di lavoro, senza duplicarli. Per ripristinare usa il pulsante generale o Ripristina sui movimenti.";
 }
