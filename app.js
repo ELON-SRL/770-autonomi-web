@@ -383,7 +383,47 @@ function f24Render(){
   btn.textContent=r.payments.length+" F24 · Dettaglio";
   btn.addEventListener("click",()=>alert(r.payments.length?r.payments.map(p=>p.date+" · "+f24Euro(p.debit)+" € · "+p.source).join("\n"):"Nessun F24 associato"));
   detail.append(btn);
-  tr.append(detail);tbody.append(tr);
+  tr.append(detail);
+  const corrections=document.createElement("td");
+  const matching=ledgerState.filter(x=>!x.excluded&&x.code===r.code&&x.period===r.month+"/"+r.year);
+  if(matching.length){
+   const edit=document.createElement("button");edit.textContent="Modifica ritenuta";
+   edit.addEventListener("click",()=>{
+    const periodInput=document.createElement("input");periodInput.className="inline-field";
+    periodInput.value=r.month+"/"+r.year;periodInput.placeholder="MM/AAAA";
+    const amountInput=document.createElement("input");amountInput.className="inline-field";
+    amountInput.value=f24Euro(r.expected);amountInput.title="Totale ritenute attribuite al periodo";
+    const confirm=document.createElement("button");confirm.textContent="Conferma";
+    confirm.addEventListener("click",()=>{
+     const target=periodInput.value.trim();
+     if(!/^(0[1-9]|1[0-2])\/20\d{2}$/.test(target)){$("f24status").textContent="Periodo non valido. Usa MM/AAAA.";return}
+     const value=parseEuros(amountInput.value);
+     if(value===null){$("f24status").textContent="Importo ritenute non valido.";return}
+     const previous=matching.reduce((sum,x)=>sum+x.amount,0);
+     const diff=value-previous;
+     if(matching[0].amount+diff<0){$("f24status").textContent="Riduzione superiore al primo movimento: modifica i movimenti nel dettaglio.";return}
+     // Spostiamo solo le ritenute; NON cambiamo il periodo o la data degli F24.
+     for(const item of matching){item.period=target;item.edited=true}
+     matching[0].amount+=diff;
+     invalidateTree();
+     $("f24status").textContent="Ritenute modificate e attribuite a "+target+". F24 originali invariati.";
+    });
+    const cancel=document.createElement("button");cancel.textContent="Annulla";
+    cancel.addEventListener("click",()=>f24Render());
+    corrections.replaceChildren(periodInput,amountInput,confirm,cancel);
+   });
+   const remove=document.createElement("button");remove.textContent="Elimina ritenuta";remove.className="secondary";
+   remove.addEventListener("click",()=>{
+    for(const item of matching)item.excluded=true;
+    invalidateTree();
+    $("f24status").textContent="Ritenute escluse dal periodo "+r.month+"/"+r.year+". Ripristinabili nel registro ritenute.";
+   });
+   corrections.append(edit,remove);
+  }else{
+   const note=document.createElement("span");note.textContent="Nessuna ritenuta nel periodo";
+   corrections.append(note);
+  }
+  tr.append(corrections);tbody.append(tr);
  }
  $("exportf24").disabled=!rows.length;
  const total=rows.reduce((s,r)=>s+(r.difference??0),0);
