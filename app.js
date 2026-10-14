@@ -1,5 +1,6 @@
 "use strict";
 import {cloneF24,usableF24,validateF24Change,parseEuros} from "./movement_edits.js";
+import {paymentGroupSummary} from "./f24_groups.js";
 import {buildStDraft,validateStRow} from "./st_draft.js";
 import {taxId,identify,verify} from "./identita.js";
 import {ravvedimentoGroups} from "./ravvedimenti.js";
@@ -201,8 +202,22 @@ function invalidateAfterF24Change(){
  stDraft=[];stInvalidate();
  $("f24status").textContent="Movimenti modificati. Riconciliazione ricalcolata; quadro ST precedente invalidato.";
 }
+function renderRavvedimenti(){
+ const groups=paymentGroupSummary(usableF24([...f24Rows,...f24Manual]),$("year").value);
+ const target=$("ravrows");target.replaceChildren();
+ for(const g of groups){
+  const tr=document.createElement("tr");
+  for(const value of [g.date,g.month+"/"+g.year,f24Euro(g.tax),f24Euro(g.penalty),f24Euro(g.possibleInterest),String(g.items.length),
+   "Un gruppo per data/periodo; dettaglio distinto, interessi da verificare"]){
+   const td=document.createElement("td");td.textContent=value;tr.append(td);
+  }
+  target.append(tr);
+ }
+ $("ravstatus").textContent=groups.length+" gruppi di versamento 1040/8948; data ereditata dalle righe senza data. Nessun importo sommato due volte.";
+}
 function f24Render(){
  renderF24Movements();
+ renderRavvedimenti();
  const tbody=$("f24rows");tbody.replaceChildren();
  const year=$("year").value,rows=reconcile(ledgerRows,usableF24([...f24Rows,...f24Manual]),year);
  for(const r of rows){
@@ -277,16 +292,7 @@ $("readf24").addEventListener("click",async()=>{
   const missing=selected.filter(r=>!r.month);
   $("f24status").textContent="PDF AdE: "+pdf.numPages+" pagine; "+f24Rows.length+" righe totali; "+selected.length+" con anno "+year+"; "+missing.length+" senza mese; "+parsed.rejected.length+" righe da verificare. I tributi non pertinenti non sono automaticamente esclusi: confronta solo i codici delle ritenute.";
   f24Render();
-  const rav=ravvedimentoGroups(f24Rows,$("year").value);
-  const target=$("ravrows");target.replaceChildren();
-  for(const g of rav){
-   const tr=document.createElement("tr");
-   for(const val of [g.date,g.period+"/"+g.year,f24Euro(g.tributo),f24Euro(g.sanzione),f24Euro(g.possibleInterest),String(g.rows.length),g.sanzione?"Raggruppamento proposto; verifica importi":"Versamento senza sanzione associata"]){
-    const td=document.createElement("td");td.textContent=val;tr.append(td);
-   }
-   target.append(tr);
-  }
-  $("ravstatus").textContent=rav.length+" gruppi 1040/8948 individuati. Gli interessi sono soltanto proposti quando vi sono più righe 1040 con sanzione 8948; verifica obbligatoria.";
+  renderRavvedimenti();
  }catch(e){$("f24status").textContent="Errore F24: "+e.message}
  finally{$("readf24").disabled=false}
 });
