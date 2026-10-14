@@ -1,0 +1,17 @@
+import {newLedgerState,activeLedger,ledgerSummary,validateLedger} from "../ledger_tree.js";
+import {reconcile} from "../f24_ade.js";
+import {buildStDraft} from "../st_draft.js";
+const state=newLedgerState([{name:"TEST",code:"1040",date:"15/07/25",amount:56137}]);
+if(ledgerSummary(state)[0].period!=="07/2025")throw Error("Initial period");
+state[0].period="03/2025";
+if(validateLedger(state[0]).length)throw Error("Invalid corrected movement");
+const grouped=ledgerSummary(state);
+if(grouped.length!==1||grouped[0].period!=="03/2025"||grouped[0].amount!==56137)throw Error("Tree recalc");
+const f24=[{date:"16/04/2025",code:"1040",month:"03",year:"2025",debit:56137}];
+const matched=reconcile(activeLedger(state),f24,2025);
+if(matched.length!==1||matched[0].difference!==0)throw Error("F24 recalc");
+const st=buildStDraft(activeLedger(state),f24,2025);
+if(st.rows.length!==1||st.rows[0].point7!==56137)throw Error("ST tree recalc");
+state[0].excluded=true;
+if(activeLedger(state).length||ledgerSummary(state).length)throw Error("Excluded source movement");
+console.log("Ledger dependency tree tests passed");
