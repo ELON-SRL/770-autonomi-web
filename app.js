@@ -198,12 +198,12 @@ $("readf24").addEventListener("click",async()=>{
   const target=$("ravrows");target.replaceChildren();
   for(const g of rav){
    const tr=document.createElement("tr");
-   for(const val of [g.date,g.period+"/"+g.year,f24Euro(g.tributo),f24Euro(g.sanzione),g.sanzione?"Sanzione presente; verificare interessi":"Nessuna sanzione associata"]){
+   for(const val of [g.date,g.period+"/"+g.year,f24Euro(g.tributo),f24Euro(g.sanzione),f24Euro(g.possibleInterest),String(g.rows.length),g.sanzione?"Raggruppamento proposto; verifica importi":"Versamento senza sanzione associata"]){
     const td=document.createElement("td");td.textContent=val;tr.append(td);
    }
    target.append(tr);
   }
-  $("ravstatus").textContent=rav.length+" gruppi 1040/8948 individuati. Gli interessi eventualmente compresi nel 1040 non sono ancora distinguibili automaticamente.";
+  $("ravstatus").textContent=rav.length+" gruppi 1040/8948 individuati. Gli interessi sono soltanto proposti quando vi sono più righe 1040 con sanzione 8948; verifica obbligatoria.";
  }catch(e){$("f24status").textContent="Errore F24: "+e.message}
  finally{$("readf24").disabled=false}
 });
