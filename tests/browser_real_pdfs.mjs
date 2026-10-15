@@ -90,6 +90,28 @@ try{
   await page.locator("#makeSt").click();
   const stRows=await page.locator("#stRows tr").count();
   assert.ok(stRows>0,"No ST draft generated");
+  // Full practice roundtrip: save from actual PDFs, reload browser, reopen JSON.
+  const savedPromise=page.waitForEvent("download");
+  await page.locator("#savePractice").click();
+  const saved=await savedPromise;
+  const savedPath=join(dir,"practice.json");
+  await saved.saveAs(savedPath);
+  const snapshot=JSON.parse(readFileSync(savedPath,"utf8"));
+  assert.equal(snapshot.taxpayer,"01184970315");
+  assert.equal(snapshot.ledgerState.length,380);
+  assert.equal(snapshot.f24Rows.length,72);
+  assert.equal(snapshot.stDraft.length,stRows);
+  assert.ok(snapshot.ledgerState.some(x=>x.document&&x.invoiceDate&&Number.isInteger(x.invoiceGross)&&Number.isInteger(x.paymentAmount)));
+  await page.reload({waitUntil:"domcontentloaded"});
+  await page.locator("#loadPractice").setInputFiles(savedPath);
+  await page.waitForFunction(()=>document.querySelector("#practiceStatus")?.textContent?.includes("Pratica ripristinata"),{timeout:30000});
+  assert.equal(await page.locator("#ledgerMovements tr").count(),380,"Ledger not restored");
+  assert.equal(await page.locator("#f24movements tr").count(),72,"F24 not restored");
+  assert.equal(await page.locator("#stRows tr").count(),stRows,"ST not restored");
+  assert.match(await page.locator("#summary").innerText(),/25.695,74/,"CU totals not restored");
+  const again=page.locator("#results tr").filter({hasText:"BARDUCCI ENZO"}).first();
+  await again.getByRole("button",{name:"Dettaglio fatture"}).click();
+  assert.notEqual(await page.locator("#recipientInvoiceRows tr").first().locator("td").nth(0).innerText(),"—","Invoice details lost after restore");
   assert.deepEqual(errors,[],"Browser JavaScript errors");
   console.log(JSON.stringify({result:"PASS",ledgerRows:380,cuRows:51,f24Rows:72,stRows,status,f24status}));
  }finally{await browser.close()}
