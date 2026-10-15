@@ -42,11 +42,21 @@ $("savePractice").addEventListener("click",()=>{
  try{
   const data=practiceSnapshot();
   unpackPractice(data);
+  const added=data.ledgerState.filter(r=>String(r.id||"").startsWith("added-"));
+  const ids=data.ledgerState.map(r=>r.id);
+  if(new Set(ids).size!==ids.length)throw Error("Identificativi ritenute duplicati: salvataggio bloccato");
+  const f24ids=[...data.f24Rows,...data.f24Manual].map(r=>r.uid).filter(Boolean);
+  if(new Set(f24ids).size!==f24ids.length)throw Error("Identificativi F24 duplicati: salvataggio bloccato");
+  const verify=JSON.parse(JSON.stringify(data));
+  if(verify.ledgerState.length!==data.ledgerState.length||
+     verify.ledgerState.filter(r=>String(r.id||"").startsWith("added-")).length!==added.length)
+   throw Error("Verifica salvataggio non riuscita");
+  
   const blob=new Blob([JSON.stringify(data,null,2)],{type:"application/json;charset=utf-8"});
   const url=URL.createObjectURL(blob),a=document.createElement("a");
   a.href=url;a.download=practiceFilename(data);a.click();
   setTimeout(()=>URL.revokeObjectURL(url),1000);
-  $("practiceStatus").textContent="Pratica salvata: "+data.savedAt+". Conserva il file per riprendere il lavoro su qualsiasi computer.";
+  $("practiceStatus").textContent="Download avviato: "+data.savedAt+" · "+data.ledgerState.length+" ritenute ("+added.length+" aggiunte manualmente), "+(data.f24Rows.length+data.f24Manual.length)+" F24. Verifica che il file sia presente nei Download.";
  }catch(error){$("practiceStatus").textContent="Salvataggio non riuscito: "+error.message}
 });
 $("loadPractice").addEventListener("change",async()=>{
@@ -65,8 +75,8 @@ $("loadPractice").addEventListener("change",async()=>{
   ledgerRows=activeLedger(ledgerState,data.year);
   syncLinks(ledgerState,usableF24([...f24Rows,...f24Manual]));
   editingCu=null;editingF24=null;editingLedger=null;editingSt=null;selectedRecipient=null;
-  ledgerSeq=Math.max(0,...ledgerState.map(x=>Number(String(x.id||"").match(/^(?:added-|adjustment-)(\\d+)$/)?.[1]||0)));
-  manualSequence=Math.max(0,...f24Manual.map(x=>Number(String(x.uid||"").match(/^manual-(\\d+)$/)?.[1]||0)));
+  ledgerSeq=Math.max(0,...ledgerState.map(x=>Number(String(x.id||"").match(/^(?:added-|adjustment-)(\d+)$/)?.[1]||0)));
+  manualSequence=Math.max(0,...f24Manual.map(x=>Number(String(x.uid||"").match(/^manual-(\d+)$/)?.[1]||0)));
   $("phase2").hidden=!data.phase2;
   $("stSection").hidden=!stDraft.length;
   $("review").checked=Boolean(data.review);$("f24review").checked=Boolean(data.f24review);
