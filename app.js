@@ -1,4 +1,4 @@
-import {auditCuExport,auditF24Export,csvLine} from "./export_audit.js";
+import {auditCuExport,auditF24Export,auditStExport,csvLine} from "./export_audit.js";
 "use strict";
 import {link,unlink,syncLinks} from "./manual_reconciliation.js?v=20261014-year";
 import {parseCuAll,reconcileNames,normalizeRecipient} from "./cu_reader.js";
@@ -670,6 +670,8 @@ $("addSt").addEventListener("click",()=>{
 });
 $("stConfirm").addEventListener("change",stRender);
 $("exportSt").addEventListener("click",()=>{
+ const audit=auditStExport(stDraft,validateStRow);
+ if(!audit.ok){$("stStatus").textContent="ESPORTAZIONE ST BLOCCATA — "+audit.errors.slice(0,5).join("; ");return}
  const fields=["point1","point2","point6","point7","point8","point9","point10","point11","point14","point15","point16"];
  const csv=[["ST1 Periodo","ST2 Ritenute","ST6 Crediti","ST7 Versato","ST8 Interessi","ST9 Ravvedimento","ST10 Note","ST11 Tributo","ST14 Data","ST15 Sospensione","ST16 Importo sospeso"].join(";"),
  ...stDraft.filter(row=>!row.excluded).map(row=>fields.map(field=>["point2","point6","point7","point8","point16"].includes(field)?(row[field]===null?"":f24Euro(row[field])):field==="point9"?(row[field]?"1":"0"):row[field]).join(";"))].join("\r\n");
