@@ -1,0 +1,14 @@
+import {link,unlink} from "../manual_reconciliation.js";
+import {newLedgerState,activeLedger} from "../ledger_tree.js";
+import {buildStDraft} from "../st_draft.js";
+const ledger=newLedgerState([{name:"TEST",code:"1040",date:"25/07/25",amount:20926}]);
+const payments=[{uid:"test-f24",code:"1040",month:"08",year:"2025",date:"16/09/2025",debit:20928}];
+link(ledger[0],payments);
+const draft=buildStDraft(activeLedger(ledger),payments,2025);
+if(draft.rows.length!==1)throw Error("Manual match must create exactly one ST row");
+if(draft.rows[0].point1!=="08/2025"||draft.rows[0].point2!==20926||draft.rows[0].point7!==20928)throw Error("ST amounts or period wrong");
+if(ledger[0].period!=="07/2025")throw Error("Original accounting period overwritten");
+unlink(ledger[0]);
+const undone=buildStDraft(activeLedger(ledger),payments,2025);
+if(undone.rows.length!==2)throw Error("Undo must restore two unmatched positions");
+console.log("Manual match -> ST and undo regression passed");
