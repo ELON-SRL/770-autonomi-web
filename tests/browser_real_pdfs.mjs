@@ -31,6 +31,8 @@ try{
   await page.waitForFunction(()=>document.querySelector("#f24status")?.textContent?.includes("PDF AdE:"),{timeout:90000});
   const f24status=await page.locator("#f24status").innerText();
   assert.match(f24status,/72 righe totali/,"Real F24 row count mismatch: "+f24status);
+  await page.locator("#f24review").check();
+  assert.equal(await page.locator("#stSection").isVisible(),true,"ST section should open after F24 review");
   await page.locator("#makeSt").click();
   const stRows=await page.locator("#stRows tr").count();
   assert.ok(stRows>0,"No ST draft generated");
