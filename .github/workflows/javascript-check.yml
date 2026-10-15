@@ -35,4 +35,5 @@ jobs:
           node tests/export_audit.test.mjs
           node tests/export_current.test.mjs
           node tests/recipient_report.test.mjs
+          node tests/invoice_roundtrip.test.mjs
           node tests/f24_2025_totals.test.mjs
