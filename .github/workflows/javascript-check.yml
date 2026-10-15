@@ -15,7 +15,7 @@ jobs:
           node-version: '22'
       - name: Validate JavaScript syntax
         run: |
-          for file in manual_reconciliation.js app.js v2.js summary_editor.js ledger_tree.js f24_ade.js movement_edits.js f24_groups.js ravvedimenti.js st_draft.js identita.js; do
+          for file in manual_reconciliation.js app.js cu_reader.js v2.js summary_editor.js ledger_tree.js f24_ade.js movement_edits.js f24_groups.js ravvedimenti.js st_draft.js identita.js; do
             node --check "$file"
           done
       - name: Test correction and ST rules
@@ -31,3 +31,4 @@ jobs:
           node tests/unallocated.test.mjs
           node tests/ledger_tree.test.mjs
           node tests/summary_editor.test.mjs
+          node tests/cu_reader.test.mjs
