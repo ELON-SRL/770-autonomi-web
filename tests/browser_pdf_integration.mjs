@@ -45,8 +45,14 @@ try{
   await page.locator("#readf24").click();
   await page.waitForFunction(()=>document.querySelector("#f24status")?.textContent?.includes("1"),{timeout:30000});
   assert.match(await page.locator("#f24rows").innerText(),/209,28/);
+  const august=page.locator("#f24rows tr").filter({hasText:"08/2025"});
+  assert.equal(await august.count(),1,"August payment should appear once");
+  await august.locator("select.period-picker").selectOption({index:1});
+  await august.getByRole("button",{name:"Riconcilia",exact:true}).click();
   await page.locator("#makeSt").click();
-  assert.ok(await page.locator("#stRows tr").count()>=1);
+  assert.equal(await page.locator("#stRows tr").count(),1,"Manual July/August match must produce one ST row");
+  assert.match(await page.locator("#stRows").innerText(),/08\/2025/);
+  assert.match(await page.locator("#stRows").innerText(),/209,28/);
   assert.deepEqual(errors,[]);
   console.log("PDF-to-browser integration passed: import, CU, F24 and ST draft");
  }finally{await browser.close()}
