@@ -1,3 +1,4 @@
+import {buildCurrentCuRows,uniqueExportName} from "./export_current.js";
 import {auditCuExport,auditF24Export,auditStExport,csvLine} from "./export_audit.js";
 "use strict";
 import {link,unlink,syncLinks} from "./manual_reconciliation.js?v=20261014-year";
@@ -85,8 +86,7 @@ function render(){
  for(const item of ledgerState.filter(x=>!x.excluded&&inLedgerYear(x,$("year").value))){
   const key=normalize(item.name);totals.set(key,(totals.get(key)||0)+item.amount);
  }
- const rows=original.map(row=>({...effective(row),key:row.name,
-  ledger:totals.get(normalize(row.name))||0})),tbody=$("results");
+ const rows=buildCurrentCuRows(original,ledgerState,overrides,$("year").value,normalize),tbody=$("results");
  tbody.replaceChildren();
  for(const r of rows){
   const tr=document.createElement("tr");
@@ -186,12 +186,12 @@ $("next").addEventListener("click",()=>{$("phase2").hidden=false;$("phase2").scr
 $("export").addEventListener("click",()=>{
  const totals=new Map();
  for(const item of activeLedger(ledgerState,$("year").value))totals.set(normalize(item.name),(totals.get(normalize(item.name))||0)+item.amount);
- const rows=original.map(row=>({...effective(row),key:row.name,ledger:totals.get(normalize(row.name))||0}));
+ const rows=buildCurrentCuRows(original,ledgerState,overrides,$("year").value,normalize);
  const audit=auditCuExport(rows,ledgerState,$("year").value);
  if(!audit.ok){$("status").textContent="ESPORTAZIONE BLOCCATA — "+audit.errors.slice(0,5).join("; ");return}
  const csv=[csvLine(["Percipiente","Ritenuta gestionale","Ritenuta CU","Differenza","Rettificata"]),...rows.map(r=>csvLine([r.name,display(r.ledger),display(r.cu),display(r.ledger-r.cu),overrides.has(r.key)?"SI":"NO"])),csvLine(["TOTALE",display(audit.exportTotal),display(audit.cuTotal),display(audit.exportTotal-audit.cuTotal),""])].join("\r\n");
  const blob=new Blob(["\ufeff"+csv],{type:"text/csv;charset=utf-8"});
- const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="770-controllo-cu.csv";a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000);
+ const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=uniqueExportName("770-controllo-cu",exportRevision);a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000);
 });
 
 function renderRestore(bodyId,rows,onRestore){
@@ -305,6 +305,7 @@ $("resetF24").addEventListener("click",()=>{
  $("f24status").textContent="Ripristinati i movimenti F24 originali. Riconciliazione ricalcolata.";
 });
 function invalidateAfterF24Change(){
+ exportRevision++;
  syncLinks(ledgerState,usableF24([...f24Rows,...f24Manual]));
  ledgerRows=activeLedger(ledgerState,$("year").value);
  renderLedgerTree();
@@ -325,7 +326,9 @@ function renderRavvedimenti(){
  }
  $("ravstatus").textContent=groups.length+" gruppi di versamento 1040/8948; data ereditata dalle righe senza data. Nessun importo sommato due volte.";
 }
+let exportRevision=0;
 function invalidateTree(){
+ exportRevision++;
  syncLinks(ledgerState,usableF24([...f24Rows,...f24Manual]));
  ledgerRows=activeLedger(ledgerState,$("year").value);
  $("review").checked=false;
@@ -572,10 +575,11 @@ $("exportf24").addEventListener("click",()=>{
  if(!audit.ok){$("f24status").textContent="ESPORTAZIONE BLOCCATA — "+audit.errors.slice(0,5).join("; ");return}
  const csv=[csvLine(["Tributo","Periodo","Ritenute","Versato","Differenza lorda","Interessi ipotizzati","Residuo","Numero F24"]),...rows.map(r=>{const interest=interestOverrides.has(r.key)?interestOverrides.get(r.key):Math.max(0,r.difference??0);return csvLine([r.code,r.month+"/"+r.year,f24Euro(r.expected),f24Euro(r.paid),r.difference===null?r.status:f24Euro(r.difference),f24Euro(interest),r.difference===null?"":f24Euro(r.difference-interest),r.payments.length])}),csvLine(["TOTALE","",f24Euro(rows.reduce((s,r)=>s+r.expected,0)),f24Euro(audit.totalExport),"","","",""])].join("\r\n");
  const blob=new Blob(["\ufeff"+csv],{type:"text/csv;charset=utf-8"});
- const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="770-quadratura-f24.csv";a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000);
+ const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=uniqueExportName("770-quadratura-f24",exportRevision);a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000);
 });
 
 function stInvalidate(){
+ exportRevision++;
  $("stConfirm").checked=false;$("exportSt").disabled=true;
  $("printSt").disabled=true;$("stPrint").hidden=true;
 }
@@ -676,7 +680,7 @@ $("exportSt").addEventListener("click",()=>{
  const csv=[["ST1 Periodo","ST2 Ritenute","ST6 Crediti","ST7 Versato","ST8 Interessi","ST9 Ravvedimento","ST10 Note","ST11 Tributo","ST14 Data","ST15 Sospensione","ST16 Importo sospeso"].join(";"),
  ...stDraft.filter(row=>!row.excluded).map(row=>fields.map(field=>["point2","point6","point7","point8","point16"].includes(field)?(row[field]===null?"":f24Euro(row[field])):field==="point9"?(row[field]?"1":"0"):row[field]).join(";"))].join("\r\n");
  const blob=new Blob(["\ufeff"+csv],{type:"text/csv;charset=utf-8"});
- const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="770-ST-provvisorio.csv";a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000);
+ const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=uniqueExportName("770-ST-provvisorio",exportRevision);a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000);
 });
 
 const stPrintFields=[
@@ -742,5 +746,5 @@ $("exportMovements").addEventListener("click",()=>{
   return [o.date,r.date,o.code,r.code,(o.month||o.period||"")+"/"+o.year,(r.assignedMonth??r.month??"")+"/"+(r.assignedYear??r.year),f24Euro(o.debit),f24Euro(r.debit),f24Euro(o.credit),f24Euro(r.credit),r.excluded?"SI":"NO",r.edited?"SI":"NO",r.source].map(safe).join(";");
  });
  const blob=new Blob(["\ufeff"+[header.map(safe).join(";"),...data].join("\r\n")],{type:"text/csv;charset=utf-8"});
- const link=document.createElement("a");link.href=URL.createObjectURL(blob);link.download="770-movimenti-F24-rettifiche.csv";link.click();setTimeout(()=>URL.revokeObjectURL(link.href),1000);
+ const link=document.createElement("a");link.href=URL.createObjectURL(blob);link.download=uniqueExportName("770-movimenti-F24-rettifiche",exportRevision);link.click();setTimeout(()=>URL.revokeObjectURL(link.href),1000);
 });
