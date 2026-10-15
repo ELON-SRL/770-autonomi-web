@@ -105,7 +105,7 @@ function showRecipientInvoices(name){
   for(const value of [r.document||"Manuale",r.invoiceDate||"—",
     Number.isInteger(r.invoiceGross)?display(r.invoiceGross):"—",
     Number.isInteger(r.paymentAmount)?display(r.paymentAmount):"—",
-    display(r.amount),r.excluded?"Esclusa":r.edited?"Rettificata":"Originale"]){
+    display(r.amount)]){
    const td=document.createElement("td");td.textContent=value;tr.append(td);
   }
   const action=document.createElement("td"),button=document.createElement("button");
