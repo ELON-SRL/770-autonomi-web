@@ -54,7 +54,7 @@ function parseLedger(lines){
  for(const line of lines){
   const m=line.match(re);if(!m)continue;
   const amount=cents(m[11]);if(!Number.isFinite(amount))continue;
-  out.push({name:normalize(m[3]),code:m[4],date:m[9],amount,document:m[1]});
+  out.push({name:normalize(m[3]),code:m[4],date:m[9],amount,document:m[1],invoiceDate:m[2],invoiceGross:cents(m[5]),invoiceWithholding:cents(m[6]),paymentAmount:cents(m[10])});
  }
  return out;
 }
@@ -80,6 +80,37 @@ function aggregate(ledger,cu){
  return [...map.values()].sort((a,b)=>a.name.localeCompare(b.name,"it"));
 }
 function effective(row){return {...row,...(overrides.get(row.name)||{})}}
+let selectedRecipient=null;
+function showRecipientInvoices(name){
+ selectedRecipient=name;
+ const panel=$("recipientInvoices"),body=$("recipientInvoiceRows");
+ panel.hidden=false;$("recipientInvoiceTitle").textContent="Fatture e ritenute — "+name;
+ body.replaceChildren();
+ const rows=ledgerState.filter(x=>normalize(x.name)===normalize(name)&&inLedgerYear(x,$("year").value));
+ let total=0;
+ for(const r of rows){
+  if(!r.excluded)total+=r.amount;
+  const tr=document.createElement("tr");
+  for(const value of [r.document||"Manuale",r.invoiceDate||"—",r.date||"—",r.code,r.period,
+    Number.isInteger(r.invoiceGross)?display(r.invoiceGross):"—",
+    Number.isInteger(r.invoiceWithholding)?display(r.invoiceWithholding):"—",
+    display(r.amount),r.excluded?"Esclusa":r.edited?"Rettificata":"Originale"]){
+   const td=document.createElement("td");td.textContent=value;tr.append(td);
+  }
+  const action=document.createElement("td"),button=document.createElement("button");
+  button.textContent="Vai al movimento";
+  button.onclick=()=>{
+   editingLedger=r.id;renderLedgerTree();
+   $("ledgerMovements").closest(".scroll").scrollIntoView({behavior:"smooth",block:"start"});
+  };
+  action.append(button);tr.append(action);body.append(tr);
+ }
+ const current=buildCurrentCuRows(original,ledgerState,overrides,$("year").value,normalize)
+  .find(r=>normalize(r.name)===normalize(name));
+ $("recipientInvoiceTotals").textContent="Ritenute attive: "+display(total)+" € · CU: "+
+  display(current?.cu||0)+" € · Differenza: "+display(total-(current?.cu||0))+
+  " € · "+rows.length+" movimenti, inclusi quelli esclusi.";
+}
 function render(){
  // I totali gestionali sono SEMPRE derivati dai movimenti attivi: non dal PDF importato immutabile.
  const totals=new Map();
@@ -137,6 +168,9 @@ function render(){
   }else{
    btn.textContent="Modifica";btn.addEventListener("click",()=>{editingCu=r.key;render()});td.append(btn);
   }
+  const inspect=document.createElement("button");inspect.textContent="Dettaglio fatture";inspect.className="secondary";
+  inspect.addEventListener("click",()=>showRecipientInvoices(r.key));
+  td.append(inspect);
   tr.append(td);tbody.append(tr);
  }
  const total=rows.reduce((s,r)=>s+r.ledger-r.cu,0);
@@ -147,6 +181,7 @@ function render(){
  if(nonzero)$("review").checked=false;
  $("next").disabled=nonzero>0||!$("review").checked;
  $("reset").disabled=!overrides.size;$("export").disabled=!rows.length;
+ if(selectedRecipient)showRecipientInvoices(selectedRecipient);
 }
 $("check").addEventListener("click",async()=>{
  const ledgerFile=$("ledger").files[0],cuFile=$("cu").files[0];
