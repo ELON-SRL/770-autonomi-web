@@ -1,0 +1,16 @@
+import {buildCurrentCuRows,uniqueExportName} from "../export_current.js";
+const original=[{name:"ROSSI MARIO",ledger:10000,cu:10000}];
+const state=[{name:"ROSSI MARIO",period:"07/2025",amount:10000,excluded:false},{name:"BIANCHI LUCA",period:"08/2025",amount:20926,excluded:false}];
+const normal=s=>s.trim().toUpperCase();
+let rows=buildCurrentCuRows(original,state,new Map(),"2025",normal);
+if(rows.length!==2||rows.find(r=>r.name==="BIANCHI LUCA").ledger!==20926)throw Error("New recipient missing in CSV");
+state[1].amount=21000;
+rows=buildCurrentCuRows(original,state,new Map(),"2025",normal);
+if(rows.find(r=>r.name==="BIANCHI LUCA").ledger!==21000)throw Error("CSV still shows previous edit");
+state[1].excluded=true;
+rows=buildCurrentCuRows(original,state,new Map(),"2025",normal);
+if(rows.some(r=>r.name==="BIANCHI LUCA"))throw Error("Excluded recipient still exported");
+const a=uniqueExportName("770-controllo-cu",1,new Date("2026-10-15T12:00:00Z"));
+const b=uniqueExportName("770-controllo-cu",2,new Date("2026-10-15T12:00:00Z"));
+if(a===b)throw Error("Exports overwrite same filename");
+console.log("Live CSV state and revision regression passed");
