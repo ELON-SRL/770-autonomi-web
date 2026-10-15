@@ -15,7 +15,7 @@ jobs:
           node-version: '22'
       - name: Validate JavaScript syntax
         run: |
-          for file in manual_reconciliation.js app.js recipient_report.js export_current.js export_audit.js cu_reader.js v2.js summary_editor.js ledger_tree.js f24_ade.js movement_edits.js f24_groups.js ravvedimenti.js st_draft.js identita.js; do
+          for file in manual_reconciliation.js app.js practice_storage.js recipient_report.js export_current.js export_audit.js cu_reader.js v2.js summary_editor.js ledger_tree.js f24_ade.js movement_edits.js f24_groups.js ravvedimenti.js st_draft.js identita.js; do
             node --check "$file"
           done
       - name: Test correction and ST rules
@@ -36,4 +36,5 @@ jobs:
           node tests/export_current.test.mjs
           node tests/recipient_report.test.mjs
           node tests/invoice_roundtrip.test.mjs
+          node tests/practice_storage.test.mjs
           node tests/f24_2025_totals.test.mjs
