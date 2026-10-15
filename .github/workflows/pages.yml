@@ -11,7 +11,29 @@ concurrency:
   group: pages
   cancel-in-progress: true
 jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Validate JavaScript
+        run: |
+          for file in app.js cu_reader.js f24_ade.js ledger_tree.js manual_reconciliation.js st_draft.js; do node --check "$file"; done
+      - name: Regression suite
+        run: |
+          set -e
+          for test in tests/*.test.mjs; do node "$test"; done
+      - name: Install browser test runtime
+        run: |
+          npm install --no-save playwright@1.58.2
+          npx playwright install --with-deps chromium
+      - name: Browser smoke test
+        run: node tests/browser_smoke.mjs
   deploy:
+    needs: verify
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
