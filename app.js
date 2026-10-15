@@ -5,7 +5,7 @@ import {auditCuExport,auditF24Export,auditStExport,csvLine} from "./export_audit
 import {link,unlink,syncLinks} from "./manual_reconciliation.js?v=20261014-year";
 import {parseCuAll,reconcileNames,normalizeRecipient} from "./cu_reader.js";
 import {cloneF24,usableF24,validateF24Change,parseEuros} from "./movement_edits.js";
-import {newLedgerState,activeLedger,ledgerSummary,validateLedger,inLedgerYear} from "./ledger_tree.js?v=20261014-year";
+import {newLedgerState,activeLedger,ledgerSummary,validateLedger,inLedgerYear} from "./ledger_tree.js?v=20261015-invoice-fields";
 import {paymentGroupSummary} from "./f24_groups.js";
 import {buildStDraft,validateStRow} from "./st_draft.js?v=20261014-st2";
 import {taxId,identify,identifyDetailed,verify} from "./identita.js?v=20261014-cf";
