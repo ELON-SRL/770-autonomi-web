@@ -57,6 +57,29 @@ try{
 
   assert.equal(csv.split(/\r?\n/).length-4,await invoiceRows.count(),"CSV invoice row count must match UI");
 
+  // Change an actual invoice withholding, then verify both detail and CSV recalculate.
+  const firstInvoice=page.locator("#recipientInvoiceRows tr").first();
+  const previous=await firstInvoice.locator("td").nth(4).innerText();
+  await firstInvoice.getByRole("button",{name:"Vai al movimento"}).click();
+  const editing=page.locator("#ledgerMovements tr").filter({has:page.locator("input")}).first();
+  const amountInput=editing.locator("input").nth(3);
+  const originalAmount=await amountInput.inputValue();
+  const adjusted=(Number(originalAmount.replace(/\\./g,"").replace(",","."))+1).toFixed(2).replace(".",",");
+  await amountInput.fill(adjusted);
+  await editing.getByRole("button",{name:"Conferma"}).click();
+  await page.locator("#results tr").filter({hasText:"BARDUCCI ENZO"}).first().getByRole("button",{name:"Dettaglio fatture"}).click();
+  assert.notEqual(await page.locator("#recipientInvoiceRows tr").first().locator("td").nth(4).innerText(),previous,"Invoice detail must update after edit");
+  const revisedDownload=page.waitForEvent("download");
+  await page.locator("#exportRecipientInvoices").click();
+  const revised=await revisedDownload;
+  const revisedPath=join(dir,"revised.csv");
+  await revised.saveAs(revisedPath);
+  assert.ok(readFileSync(revisedPath,"utf8").includes(adjusted),"CSV must contain edited invoice withholding");
+  // Restore original value so the remaining real-PDF tests use unchanged amounts.
+  await page.locator("#recipientInvoiceRows tr").first().getByRole("button",{name:"Vai al movimento"}).click();
+  const restored=page.locator("#ledgerMovements tr").filter({has:page.locator("input")}).first();
+  await restored.locator("input").nth(3).fill(originalAmount);
+  await restored.getByRole("button",{name:"Conferma"}).click();
   await page.locator("#f24").setInputFiles(resolve(root,names[2]));
   await page.locator("#readf24").click();
   await page.waitForFunction(()=>document.querySelector("#f24status")?.textContent?.includes("PDF AdE:"),{timeout:90000});
