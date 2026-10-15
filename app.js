@@ -227,7 +227,7 @@ $("check").addEventListener("click",async()=>{
 });
 $("year").addEventListener("change",()=>{interestOverrides.clear();invalidateTree()});
 $("review").addEventListener("change",render);
-$("reset").addEventListener("click",()=>{overrides.clear();$("review").checked=false;render()});
+$("reset").addEventListener("click",()=>{overrides.clear();editingCu=null;invalidateTree()});
 $("next").addEventListener("click",()=>{$("phase2").hidden=false;$("phase2").scrollIntoView({behavior:"smooth"})});
 $("export").addEventListener("click",()=>{
  const totals=new Map();
@@ -355,8 +355,9 @@ function invalidateAfterF24Change(){
  syncLinks(ledgerState,usableF24([...f24Rows,...f24Manual]));
  ledgerRows=activeLedger(ledgerState,$("year").value);
  renderLedgerTree();
+ render();
  $("f24review").checked=false;$("stSection").hidden=true;
- stDraft=[];stInvalidate();
+ stDraft=[];stInvalidate();stRender();
  $("f24status").textContent="Movimenti modificati. Riconciliazione ricalcolata; quadro ST precedente invalidato.";
 }
 function renderRavvedimenti(){
@@ -380,7 +381,7 @@ function invalidateTree(){
  $("review").checked=false;
  $("f24review").checked=false;
  $("stSection").hidden=false;
- stDraft=[];editingSt=null;stInvalidate();
+ stDraft=[];editingSt=null;stInvalidate();stRender();
  render();
  renderLedgerTree();
  if(!$("phase2").hidden)f24Render();
