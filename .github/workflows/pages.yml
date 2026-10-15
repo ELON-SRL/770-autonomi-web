@@ -21,7 +21,7 @@ jobs:
           node-version: '22'
       - name: Validate JavaScript
         run: |
-          for file in app.js export_audit.js cu_reader.js f24_ade.js ledger_tree.js manual_reconciliation.js st_draft.js; do node --check "$file"; done
+          for file in app.js export_current.js export_audit.js cu_reader.js f24_ade.js ledger_tree.js manual_reconciliation.js st_draft.js; do node --check "$file"; done
       - name: Regression suite
         run: |
           set -euo pipefail
