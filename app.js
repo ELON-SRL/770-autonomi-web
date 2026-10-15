@@ -498,6 +498,20 @@ function openMovementDialog(mode){
   input.setAttribute("aria-label",label);wrap.append(input);fields.append(wrap);
  }
  dialog.showModal();
+ // Il popup è ancorato al pulsante: nessuno scorrimento verso il fondo pagina.
+ // Usa solo coordinate visive; non cambia il formato dei movimenti né il JSON.
+ const trigger=$(mode==="ledger"?"addLedger":"addf24");
+ const rect=trigger.getBoundingClientRect();
+ const width=dialog.getBoundingClientRect().width;
+ const height=dialog.getBoundingClientRect().height;
+ const margin=12;
+ const left=Math.max(margin,Math.min(rect.left,window.innerWidth-width-margin));
+ const below=rect.bottom+8;
+ const top=below+height<=window.innerHeight-margin?below:
+  rect.top-height-8>=margin?rect.top-height-8:
+  Math.max(margin,Math.min(below,window.innerHeight-height-margin));
+ dialog.style.left=left+"px";
+ dialog.style.top=top+"px";
  fields.querySelector("input")?.focus();
 }
 $("cancelMovement").addEventListener("click",()=>$("movementDialog").close());
