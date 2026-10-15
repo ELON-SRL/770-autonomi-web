@@ -26,6 +26,12 @@ try{
   assert.match(status,/51 righe CU/,"Real CU count mismatch: "+status);
   assert.match(status,/149\.508,67/,"Real ledger amount mismatch: "+status);
   assert.match(status,/175\.204,41/,"Real CU amount mismatch: "+status);
+  const recipient=page.locator("#results tr").filter({hasText:"BARDUCCI ENZO"}).first();
+  await recipient.getByRole("button",{name:"Dettaglio fatture"}).click();
+  assert.equal(await page.locator("#recipientInvoices").isVisible(),true,"Invoice details not visible");
+  const invoiceRows=page.locator("#recipientInvoiceRows tr");
+  assert.ok(await invoiceRows.count()>1,"Real recipient invoices missing");
+  assert.match(await page.locator("#recipientInvoiceTotals").innerText(),/Ritenute attive:/);
   await page.locator("#f24").setInputFiles(resolve(root,names[2]));
   await page.locator("#readf24").click();
   await page.waitForFunction(()=>document.querySelector("#f24status")?.textContent?.includes("PDF AdE:"),{timeout:90000});
