@@ -6,6 +6,9 @@ export function normalizeMonth(date){
 export function newLedgerState(rows){
  return rows.map((r,i)=>({
   id:"ledger-"+i,source:{...r},name:r.name,code:r.code,date:r.date,
+  document:r.document??null,invoiceDate:r.invoiceDate??null,
+  invoiceGross:r.invoiceGross??null,invoiceWithholding:r.invoiceWithholding??null,
+  paymentAmount:r.paymentAmount??null,
   period:normalizeMonth(r.date),amount:r.amount,excluded:false,edited:false
  }));
 }
