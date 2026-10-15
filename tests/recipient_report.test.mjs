@@ -14,8 +14,9 @@ result=recipientInvoiceReport("ROSSI MARIO","2025",rows,money);
 if(result.total!==31000||!result.csv.includes("310,00"))throw Error("Export not refreshed after edit");
 console.log("Recipient invoice report tests passed");
 
-if(!result.csv.includes("Compenso imponibile (se documentato)"))throw Error("Taxable compensation column missing");
-if(result.taxableRows!==0||!result.csv.includes("NON DISPONIBILE"))throw Error("Undocumented taxable compensation inferred");
-rows[0].taxableCompensation=80000;
+
+if(!result.csv.includes("Importo pagato"))throw Error("Paid amount column missing");
+rows[0].paymentAmount=80000;
 result=recipientInvoiceReport("ROSSI MARIO","2025",rows,money);
-if(result.taxableRows!==1||result.taxable!==80000)throw Error("Documented taxable amount not preserved");
+if(result.knownPaid!==1||result.paid!==80000)throw Error("Paid amount not preserved");
+if(result.csv.includes("Compenso imponibile"))throw Error("Unrequested taxable compensation column");
