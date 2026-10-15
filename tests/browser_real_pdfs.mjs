@@ -47,6 +47,14 @@ try{
   assert.match(csv,/Numero fattura.*Data fattura.*Totale fattura.*Importo pagato.*Ritenuta operata/);
   assert.match(csv,/BARDUCCI ENZO/);
   assert.match(csv,/TOTALE/);
+  const invoiceDetails=await page.locator("#recipientInvoiceRows tr").first().locator("td").allInnerTexts();
+  for(const idx of [0,1,2,3]){
+   assert.notEqual(invoiceDetails[idx],"—","Real invoice field "+idx+" missing");
+   assert.ok(invoiceDetails[idx].trim(),"Real invoice field "+idx+" empty");
+  }
+  const csvFields=csv.split(/\r?\n/).slice(3,-1).join("\n");
+  for(const value of invoiceDetails.slice(0,4))assert.ok(csvFields.includes(value),"CSV missing displayed invoice value: "+value);
+
   assert.equal(csv.split(/\r?\n/).length-4,await invoiceRows.count(),"CSV invoice row count must match UI");
 
   await page.locator("#f24").setInputFiles(resolve(root,names[2]));
