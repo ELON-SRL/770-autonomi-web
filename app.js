@@ -1,3 +1,4 @@
+import {recipientInvoiceReport} from "./recipient_report.js";
 import {buildCurrentCuRows,uniqueExportName} from "./export_current.js";
 import {auditCuExport,auditF24Export,auditStExport,csvLine} from "./export_audit.js";
 "use strict";
@@ -81,6 +82,16 @@ function aggregate(ledger,cu){
 }
 function effective(row){return {...row,...(overrides.get(row.name)||{})}}
 let selectedRecipient=null;
+$("exportRecipientInvoices").addEventListener("click",()=>{
+ if(!selectedRecipient)return;
+ const report=recipientInvoiceReport(selectedRecipient,$("year").value,ledgerState,display);
+ if(!report.rows){$("status").textContent="Nessuna fattura attiva da esportare per "+selectedRecipient;return}
+ const blob=new Blob([report.csv],{type:"text/csv;charset=utf-8"});
+ const link=document.createElement("a");link.href=URL.createObjectURL(blob);
+ link.download="770-fatture-"+selectedRecipient.replace(/[^A-Z0-9]+/gi,"-")+"-"+$("year").value+"-rev"+exportRevision+"-"+Date.now()+".csv";
+ link.click();setTimeout(()=>URL.revokeObjectURL(link.href),1000);
+ $("status").textContent="Esportate "+report.rows+" fatture per "+selectedRecipient+". Ritenute "+display(report.total)+" €. Dati compenso disponibili su "+report.knownGross+" righe.";
+});
 function showRecipientInvoices(name){
  selectedRecipient=name;
  const panel=$("recipientInvoices"),body=$("recipientInvoiceRows");
