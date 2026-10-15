@@ -482,11 +482,51 @@ function renderLedgerTree(){
  }
 }
 let ledgerSeq=0;
-$("addLedger").addEventListener("click",()=>{
- const period="01/"+$("year").value;
- const r={id:"added-"+(++ledgerSeq),source:null,name:"",code:"1040",period,amount:0,excluded:false,edited:true};
- ledgerState.push(r);editingLedger=r.id;invalidateTree();renderLedgerTree();
+
+let movementMode=null;
+function openMovementDialog(mode){
+ movementMode=mode;
+ const dialog=$("movementDialog"),fields=$("movementDialogFields");
+ fields.replaceChildren();$("movementDialogError").textContent="";
+ $("movementDialogTitle").textContent=mode==="ledger"?"Aggiungi ritenuta gestionale":"Aggiungi versamento F24";
+ const defs=mode==="ledger"?
+  [["name","Percipiente",""],["code","Codice tributo","1040"],["period","Periodo MM/AAAA","01/"+$("year").value],["amount","Ritenuta operata (€)","0,00"]]:
+  [["date","Data versamento GG/MM/AAAA",""],["code","Codice tributo","1040"],["month","Mese di riferimento MM","01"],["year","Anno di riferimento",$("year").value],["debit","Importo a debito (€)","0,00"],["credit","Importo a credito (€)","0,00"]];
+ for(const [key,label,value] of defs){
+  const wrap=document.createElement("label");wrap.textContent=label;
+  const input=document.createElement("input");input.name=key;input.value=value;input.required=true;
+  input.setAttribute("aria-label",label);wrap.append(input);fields.append(wrap);
+ }
+ dialog.showModal();
+ fields.querySelector("input")?.focus();
+}
+$("cancelMovement").addEventListener("click",()=>$("movementDialog").close());
+$("movementForm").addEventListener("submit",event=>{
+ event.preventDefault();
+ const form=new FormData(event.currentTarget),get=k=>String(form.get(k)||"").trim();
+ if(movementMode==="ledger"){
+  const r={id:"added-"+(ledgerSeq+1),source:null,name:normalize(get("name")),code:get("code"),
+   period:get("period"),amount:parseEuros(get("amount")),excluded:false,edited:true};
+  const errors=validateLedger(r);
+  if(errors.length){$("movementDialogError").textContent="Controlla: "+errors.join(", ");return}
+  ledgerSeq++;ledgerState.push(r);editingLedger=null;
+  $("movementDialog").close();invalidateTree();
+  $("status").textContent="Ritenuta aggiunta e riepiloghi ricalcolati.";
+ }else if(movementMode==="f24"){
+  const year=get("year"),month=get("month").padStart(2,"0");
+  const debit=parseEuros(get("debit")),credit=parseEuros(get("credit"));
+  const r={uid:"manual-"+(manualSequence+1),code:get("code"),month,year,assignedMonth:month,assignedYear:year,
+   date:get("date"),debit,credit,source:"MANUALE",excluded:false,edited:true};
+  const errors=validateF24Change(r);
+  if(errors.length){$("movementDialogError").textContent="Controlla: "+errors.join(", ");return}
+  r.original={date:r.date,code:r.code,month:r.month,year:r.year,debit:r.debit,credit:r.credit};
+  manualSequence++;f24Manual.push(r);editingF24=null;
+  $("movementDialog").close();invalidateAfterF24Change();f24Render();
+  $("f24status").textContent="F24 aggiunto e riconciliazione ricalcolata.";
+ }
 });
+
+$("addLedger").addEventListener("click",()=>openMovementDialog("ledger"));
 function f24Render(){
  renderF24Movements();
  renderRavvedimenti();
@@ -654,14 +694,7 @@ $("readf24").addEventListener("click",async()=>{
  finally{$("readf24").disabled=false}
 });
 let manualSequence=0;
-$("addf24").addEventListener("click",()=>{
- const year=$("year").value;
- const row={uid:"manual-"+(++manualSequence),code:"1040",month:"01",year,assignedMonth:"01",assignedYear:year,
- date:"",debit:0,credit:0,source:"MANUALE",excluded:false,edited:true,
- original:{date:"",code:"1040",month:"01",year,debit:0,credit:0}};
- f24Manual.push(row);editingF24=row.uid;invalidateAfterF24Change();f24Render();
- $("f24status").textContent="Nuovo F24: compila i campi della riga e premi Conferma.";
-});
+$("addf24").addEventListener("click",()=>openMovementDialog("f24"));
 $("replacef24").addEventListener("click",()=>{
  $("f24").click();
 });
