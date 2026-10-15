@@ -53,6 +53,14 @@ try{
   assert.equal(await page.locator("#stRows tr").count(),1,"Manual July/August match must produce one ST row");
   assert.match(await page.locator("#stRows").innerText(),/08\/2025/);
   assert.match(await page.locator("#stRows").innerText(),/209,28/);
+  const payment=page.locator("#f24movements tr").first();
+  await payment.getByRole("button",{name:"Modifica"}).click();
+  const paymentEdit=page.locator("#f24movements tr").filter({has:page.locator("input")}).first();
+  await paymentEdit.locator("input").nth(4).fill("210,28");
+  await paymentEdit.getByRole("button",{name:"Conferma"}).click();
+  assert.equal(await page.locator("#stRows tr").count(),0,"Editing F24 must invalidate previous ST draft");
+  assert.match(await page.locator("#f24rows").innerText(),/210,28/,"F24 summary must recalculate");
+  assert.equal(await page.locator("#stConfirm").isChecked(),false,"ST confirmation must reset after source change");
   assert.deepEqual(errors,[]);
   console.log("PDF-to-browser integration passed: import, CU, F24 and ST draft");
  }finally{await browser.close()}
