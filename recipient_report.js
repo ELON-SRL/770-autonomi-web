@@ -6,12 +6,14 @@ export function recipientInvoiceReport(name,year,ledger,formatMoney){
  const total=rows.reduce((s,r)=>s+r.amount,0);
  const knownGross=rows.filter(r=>Number.isSafeInteger(r.invoiceGross));
  const gross=knownGross.reduce((s,r)=>s+r.invoiceGross,0);
+ const taxableRows=rows.filter(r=>Number.isSafeInteger(r.taxableCompensation));
+ const taxable=taxableRows.reduce((s,r)=>s+r.taxableCompensation,0);
  const data=[
   line(["Percipiente",name]),line(["Anno",year]),
-  line(["Documento","Data fattura","Data pagamento","Compenso / totale fattura da gestionale","Ritenuta operata","Periodo","Tributo"]),
-  ...rows.map(r=>line([r.document||"Inserimento manuale",r.invoiceDate||"",r.date||"",Number.isSafeInteger(r.invoiceGross)?formatMoney(r.invoiceGross):"",formatMoney(r.amount),r.period,r.code])),
-  line(["TOTALE","","",knownGross.length===rows.length?formatMoney(gross):"PARZIALE "+formatMoney(gross),formatMoney(total),"",""]),
-  line(["Nota","Il valore compenso/totale fattura e' quello esposto nel listato gestionale; non e' verificato come imponibile fiscale. Le fatture manuali prive di compenso restano vuote."])
+  line(["Documento","Data fattura","Data pagamento","Totale fattura (gestionale)","Compenso imponibile (se documentato)","Ritenuta operata","Periodo","Tributo"]),
+  ...rows.map(r=>line([r.document||"Inserimento manuale",r.invoiceDate||"",r.date||"",Number.isSafeInteger(r.invoiceGross)?formatMoney(r.invoiceGross):"",Number.isSafeInteger(r.taxableCompensation)?formatMoney(r.taxableCompensation):"",formatMoney(r.amount),r.period,r.code])),
+  line(["TOTALE","","",knownGross.length===rows.length?formatMoney(gross):"PARZIALE "+formatMoney(gross),taxableRows.length===rows.length?formatMoney(taxable):"NON DISPONIBILE",formatMoney(total),"",""]),
+  line(["Nota","Il listato gestionale indica il totale fattura, non il compenso imponibile. Il compenso imponibile rimane vuoto se non documentato; non viene stimato."])
  ];
- return {csv:"\ufeff"+data.join("\r\n"),rows:rows.length,total,knownGross:knownGross.length,gross};
+ return {csv:"\ufeff"+data.join("\r\n"),rows:rows.length,total,knownGross:knownGross.length,gross,taxableRows:taxableRows.length,taxable};
 }
