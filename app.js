@@ -104,6 +104,7 @@ function showRecipientInvoices(name){
   const tr=document.createElement("tr");
   for(const value of [r.document||"Manuale",r.invoiceDate||"—",r.date||"—",r.code,r.period,
     Number.isInteger(r.invoiceGross)?display(r.invoiceGross):"—",
+    Number.isInteger(r.taxableCompensation)?display(r.taxableCompensation):"—",
     Number.isInteger(r.invoiceWithholding)?display(r.invoiceWithholding):"—",
     display(r.amount),r.excluded?"Esclusa":r.edited?"Rettificata":"Originale"]){
    const td=document.createElement("td");td.textContent=value;tr.append(td);
