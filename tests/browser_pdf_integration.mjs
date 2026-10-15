@@ -63,6 +63,12 @@ try{
   assert.equal(await page.locator("#stConfirm").isChecked(),false,"ST confirmation must reset after source change");
   await page.locator("#addLedger").click();
   assert.equal(await page.locator("#movementDialog").isVisible(),true,"Ledger modal must open");
+  const triggerRect=await page.locator("#addLedger").boundingBox();
+  const popupRect=await page.locator("#movementDialog").boundingBox();
+  assert.ok(triggerRect&&popupRect,"Popup or trigger position missing");
+  assert.ok(Math.abs(popupRect.x-triggerRect.x)<250,"Popup must open next to Add withholding button");
+  assert.ok(popupRect.y>=0,"Popup must remain within viewport");
+
   await page.locator('#movementDialog input[name="name"]').fill("NUOVO PERCIPIENTE");
   await page.locator('#movementDialog input[name="period"]').fill("08/2025");
   await page.locator('#movementDialog input[name="amount"]').fill("100,00");
