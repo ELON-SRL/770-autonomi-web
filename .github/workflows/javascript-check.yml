@@ -32,3 +32,4 @@ jobs:
           node tests/ledger_tree.test.mjs
           node tests/summary_editor.test.mjs
           node tests/cu_reader.test.mjs
+          node tests/f24_2025_totals.test.mjs
