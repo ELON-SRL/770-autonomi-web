@@ -64,7 +64,7 @@ try{
   const editing=page.locator("#ledgerMovements tr").filter({has:page.locator("input")}).first();
   const amountInput=editing.locator("input").nth(3);
   const originalAmount=await amountInput.inputValue();
-  const adjusted=(Number(originalAmount.replace(/\\./g,"").replace(",","."))+1).toFixed(2).replace(".",",");
+  const adjusted=(Number(originalAmount.replace(/[.]/g,"").replace(",","."))+1).toFixed(2).replace(".",",");
   await amountInput.fill(adjusted);
   await editing.getByRole("button",{name:"Conferma"}).click();
   await page.locator("#results tr").filter({hasText:"BARDUCCI ENZO"}).first().getByRole("button",{name:"Dettaglio fatture"}).click();
