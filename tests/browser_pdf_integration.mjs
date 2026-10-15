@@ -61,6 +61,22 @@ try{
   assert.equal(await page.locator("#stRows tr").count(),0,"Editing F24 must invalidate previous ST draft");
   assert.match(await page.locator("#f24rows").innerText(),/210,28/,"F24 summary must recalculate");
   assert.equal(await page.locator("#stConfirm").isChecked(),false,"ST confirmation must reset after source change");
+  await page.locator("#addLedger").click();
+  assert.equal(await page.locator("#movementDialog").isVisible(),true,"Ledger modal must open");
+  await page.locator('#movementDialog input[name="name"]').fill("NUOVO PERCIPIENTE");
+  await page.locator('#movementDialog input[name="period"]').fill("08/2025");
+  await page.locator('#movementDialog input[name="amount"]').fill("100,00");
+  await page.locator("#movementForm").getByRole("button",{name:"Conferma e aggiungi"}).click();
+  assert.equal(await page.locator("#movementDialog").isVisible(),false,"Ledger modal must close");
+  assert.match(await page.locator("#results").innerText(),/NUOVO PERCIPIENTE/);
+  await page.locator("#addf24").click();
+  assert.equal(await page.locator("#movementDialog").isVisible(),true,"F24 modal must open");
+  await page.locator('#movementDialog input[name="date"]').fill("16/09/2025");
+  await page.locator('#movementDialog input[name="month"]').fill("08");
+  await page.locator('#movementDialog input[name="debit"]').fill("100,00");
+  await page.locator("#movementForm").getByRole("button",{name:"Conferma e aggiungi"}).click();
+  assert.equal(await page.locator("#movementDialog").isVisible(),false,"F24 modal must close");
+  assert.match(await page.locator("#f24movements").innerText(),/100,00/);
   assert.deepEqual(errors,[]);
   console.log("PDF-to-browser integration passed: import, CU, F24 and ST draft");
  }finally{await browser.close()}
