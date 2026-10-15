@@ -32,3 +32,5 @@ td:has(.inline-field){background:#f0f7ff}td button.secondary{background:#65778b;
 #movementDialog .modal-fields label{display:flex;flex-direction:column;gap:5px}
 #movementDialog .modal-fields input{width:100%;box-sizing:border-box}
 #movementDialog [role=alert]{color:#a32020}
+
+#movementDialog[open]{position:fixed;margin:0;inset:auto;box-sizing:border-box;max-width:min(560px,calc(100vw - 24px));max-height:min(88vh,calc(100dvh - 24px))}
