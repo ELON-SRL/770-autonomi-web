@@ -25,3 +25,17 @@ export function auditF24Export(rows,payments,year){
 }
 export function csvCell(value){const s=String(value??"");return '"'+s.replace(/"/g,'""')+'"'}
 export function csvLine(values){return values.map(csvCell).join(";")}
+
+export function auditStExport(rows,validateRow){
+ const errors=[];
+ const active=rows.filter(r=>!r.excluded);
+ if(!active.length)errors.push("Nessun rigo ST da esportare");
+ for(let i=0;i<active.length;i++){
+  const r=active[i];
+  for(const error of validateRow(r))errors.push("ST rigo "+(i+1)+": "+error);
+  for(const key of ["point2","point6","point7","point8","point16"]){
+   if(r[key]!==null&&(!Number.isSafeInteger(r[key])||r[key]<0))errors.push("ST rigo "+(i+1)+": "+key+" non valido");
+  }
+ }
+ return {ok:errors.length===0,errors,rows:active.length,totalWithheld:active.reduce((s,r)=>s+(r.point2||0),0),totalPaid:active.reduce((s,r)=>s+(r.point7||0),0)};
+}
