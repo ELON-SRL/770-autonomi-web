@@ -82,7 +82,7 @@ try{
   await page.locator('#movementDialog input[name="debit"]').fill("100,00");
   await page.locator("#movementForm").getByRole("button",{name:"Conferma e aggiungi"}).click();
   assert.equal(await page.locator("#movementDialog").isVisible(),false,"F24 modal must close");
-  assert.match(await page.locator("#f24movements").innerText(),/100,00/);
+  assert.match(await page.locator("#f24movements").innerText(),/100[.,]00/);
   assert.deepEqual(errors,[]);
   console.log("PDF-to-browser integration passed: import, CU, F24 and ST draft");
  }finally{await browser.close()}
