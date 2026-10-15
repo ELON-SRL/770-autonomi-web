@@ -102,10 +102,9 @@ function showRecipientInvoices(name){
  for(const r of rows){
   if(!r.excluded)total+=r.amount;
   const tr=document.createElement("tr");
-  for(const value of [r.document||"Manuale",r.invoiceDate||"—",r.date||"—",r.code,r.period,
+  for(const value of [r.document||"Manuale",r.invoiceDate||"—",
     Number.isInteger(r.invoiceGross)?display(r.invoiceGross):"—",
-    Number.isInteger(r.taxableCompensation)?display(r.taxableCompensation):"—",
-    Number.isInteger(r.invoiceWithholding)?display(r.invoiceWithholding):"—",
+    Number.isInteger(r.paymentAmount)?display(r.paymentAmount):"—",
     display(r.amount),r.excluded?"Esclusa":r.edited?"Rettificata":"Originale"]){
    const td=document.createElement("td");td.textContent=value;tr.append(td);
   }
