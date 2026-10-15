@@ -24,3 +24,11 @@ td:has(.inline-field){background:#f0f7ff}td button.secondary{background:#65778b;
 #f24movements td:nth-child(3){background:#f5f6f7;color:#526273}
 #f24movements input.inline-field{min-width:95px}
 .excluded-row{opacity:.6;text-decoration:line-through;background:#fff1ef}
+
+/* Inserimento movimenti senza scorrimento della tabella */
+#movementDialog{max-width:min(560px,94vw);width:100%;max-height:88vh;overflow:auto;border:1px solid #aab4c0;border-radius:12px;padding:22px;background:#fff;color:#1b2733;box-shadow:0 18px 70px #0005}
+#movementDialog::backdrop{background:#0009}
+#movementDialog .modal-fields{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px;margin:18px 0}
+#movementDialog .modal-fields label{display:flex;flex-direction:column;gap:5px}
+#movementDialog .modal-fields input{width:100%;box-sizing:border-box}
+#movementDialog [role=alert]{color:#a32020}
