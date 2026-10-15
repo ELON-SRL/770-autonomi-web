@@ -1,3 +1,4 @@
+import {packPractice,unpackPractice,practiceFilename} from "./practice_storage.js";
 import {recipientInvoiceReport} from "./recipient_report.js";
 import {buildCurrentCuRows,uniqueExportName} from "./export_current.js";
 import {auditCuExport,auditF24Export,auditStExport,csvLine} from "./export_audit.js";
@@ -27,6 +28,54 @@ const cents=s=>Math.round(Number(String(s).replace(/\./g,"").replace(",","."))*1
 const display=n=>money(n/100);
 const normalize=s=>String(s).toUpperCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/\s+/g," ").trim();
 let original=[],overrides=new Map(),parseIssues=[],ledgerRows=[],f24Rows=[],f24Manual=[],interestOverrides=new Map(),stDraft=[],editingCu=null,editingF24=null,ledgerState=[],editingLedger=null;
+function practiceSnapshot(){
+ return packPractice({
+  taxpayer:taxId($("taxpayer").value),year:$("year").value,
+  original,ledgerState,f24Rows,f24Manual,stDraft,
+  overrides:[...overrides.entries()],interestOverrides:[...interestOverrides.entries()],
+  exportRevision,review:$("review").checked,f24review:$("f24review").checked,
+  stConfirm:$("stConfirm").checked,phase2:!$("phase2").hidden
+ });
+}
+$("savePractice").addEventListener("click",()=>{
+ if(!ledgerState.length&&!original.length){$("practiceStatus").textContent="Nessuna lavorazione da salvare.";return}
+ try{
+  const data=practiceSnapshot();
+  unpackPractice(data);
+  const blob=new Blob([JSON.stringify(data,null,2)],{type:"application/json;charset=utf-8"});
+  const url=URL.createObjectURL(blob),a=document.createElement("a");
+  a.href=url;a.download=practiceFilename(data);a.click();
+  setTimeout(()=>URL.revokeObjectURL(url),1000);
+  $("practiceStatus").textContent="Pratica salvata: "+data.savedAt+". Conserva il file per riprendere il lavoro su qualsiasi computer.";
+ }catch(error){$("practiceStatus").textContent="Salvataggio non riuscito: "+error.message}
+});
+$("loadPractice").addEventListener("change",async()=>{
+ const file=$("loadPractice").files[0];if(!file)return;
+ try{
+  const data=unpackPractice(JSON.parse(await file.text()));
+  if((ledgerState.length||f24Rows.length||stDraft.length)&&
+     !confirm("Aprire la pratica sostituendo la lavorazione attualmente in memoria? Prima puoi salvarla."))return;
+  original=structuredClone(data.original);
+  ledgerState=structuredClone(data.ledgerState);
+  f24Rows=structuredClone(data.f24Rows);f24Manual=structuredClone(data.f24Manual);
+  stDraft=structuredClone(data.stDraft);
+  overrides=new Map(data.overrides);interestOverrides=new Map(data.interestOverrides);
+  $("taxpayer").value=data.taxpayer;$("year").value=data.year;
+  exportRevision=Number.isSafeInteger(data.exportRevision)?data.exportRevision:0;
+  ledgerRows=activeLedger(ledgerState,data.year);
+  syncLinks(ledgerState,usableF24([...f24Rows,...f24Manual]));
+  editingCu=null;editingF24=null;editingLedger=null;editingSt=null;selectedRecipient=null;
+  ledgerSeq=Math.max(0,...ledgerState.map(x=>Number(String(x.id||"").match(/^(?:added-|adjustment-)(\\d+)$/)?.[1]||0)));
+  manualSequence=Math.max(0,...f24Manual.map(x=>Number(String(x.uid||"").match(/^manual-(\\d+)$/)?.[1]||0)));
+  $("phase2").hidden=!data.phase2;
+  $("stSection").hidden=!stDraft.length;
+  $("review").checked=Boolean(data.review);$("f24review").checked=Boolean(data.f24review);
+  $("stConfirm").checked=Boolean(data.stConfirm);
+  render();renderLedgerTree();f24Render();stRender();
+  $("practiceStatus").textContent="Pratica ripristinata: "+data.taxpayer+" · "+data.year+" · salvataggio "+data.savedAt;
+ }catch(error){$("practiceStatus").textContent="Apertura non riuscita: "+error.message}
+ finally{$("loadPractice").value=""}
+});
 function lineText(items){
  const groups=[];
  for(const item of items){
