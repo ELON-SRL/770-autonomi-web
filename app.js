@@ -1,3 +1,4 @@
+import {auditCuExport,auditF24Export,csvLine} from "./export_audit.js";
 "use strict";
 import {link,unlink,syncLinks} from "./manual_reconciliation.js?v=20261014-year";
 import {parseCuAll,reconcileNames,normalizeRecipient} from "./cu_reader.js";
@@ -186,7 +187,9 @@ $("export").addEventListener("click",()=>{
  const totals=new Map();
  for(const item of activeLedger(ledgerState,$("year").value))totals.set(normalize(item.name),(totals.get(normalize(item.name))||0)+item.amount);
  const rows=original.map(row=>({...effective(row),key:row.name,ledger:totals.get(normalize(row.name))||0}));
- const csv=["Percipiente;Ritenuta gestionale;Ritenuta CU;Differenza;Rettificata",...rows.map(r=>[r.name,display(r.ledger),display(r.cu),display(r.ledger-r.cu),overrides.has(r.key)?"SI":"NO"].join(";"))].join("\r\n");
+ const audit=auditCuExport(rows,ledgerState,$("year").value);
+ if(!audit.ok){$("status").textContent="ESPORTAZIONE BLOCCATA — "+audit.errors.slice(0,5).join("; ");return}
+ const csv=[csvLine(["Percipiente","Ritenuta gestionale","Ritenuta CU","Differenza","Rettificata"]),...rows.map(r=>csvLine([r.name,display(r.ledger),display(r.cu),display(r.ledger-r.cu),overrides.has(r.key)?"SI":"NO"])),csvLine(["TOTALE",display(audit.exportTotal),display(audit.cuTotal),display(audit.exportTotal-audit.cuTotal),""])].join("\r\n");
  const blob=new Blob(["\ufeff"+csv],{type:"text/csv;charset=utf-8"});
  const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="770-controllo-cu.csv";a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000);
 });
@@ -565,7 +568,9 @@ $("replacef24").addEventListener("click",()=>{
 });
 $("exportf24").addEventListener("click",()=>{
  const rows=reconcile(ledgerRows,usableF24([...f24Rows,...f24Manual]),$("year").value);
- const csv=["Tributo;Periodo;Ritenute;Versato;Differenza lorda;Interessi ipotizzati;Residuo;Numero F24",...rows.map(r=>{const interest=interestOverrides.has(r.key)?interestOverrides.get(r.key):Math.max(0,r.difference??0);return [r.code,r.month+"/"+r.year,f24Euro(r.expected),f24Euro(r.paid),r.difference===null?r.status:f24Euro(r.difference),f24Euro(interest),r.difference===null?"":f24Euro(r.difference-interest),r.payments.length].join(";")})].join("\r\n");
+ const audit=auditF24Export(rows,usableF24([...f24Rows,...f24Manual]),$("year").value);
+ if(!audit.ok){$("f24status").textContent="ESPORTAZIONE BLOCCATA — "+audit.errors.slice(0,5).join("; ");return}
+ const csv=[csvLine(["Tributo","Periodo","Ritenute","Versato","Differenza lorda","Interessi ipotizzati","Residuo","Numero F24"]),...rows.map(r=>{const interest=interestOverrides.has(r.key)?interestOverrides.get(r.key):Math.max(0,r.difference??0);return csvLine([r.code,r.month+"/"+r.year,f24Euro(r.expected),f24Euro(r.paid),r.difference===null?r.status:f24Euro(r.difference),f24Euro(interest),r.difference===null?"":f24Euro(r.difference-interest),r.payments.length])}),csvLine(["TOTALE","",f24Euro(rows.reduce((s,r)=>s+r.expected,0)),f24Euro(audit.totalExport),"","","",""])].join("\r\n");
  const blob=new Blob(["\ufeff"+csv],{type:"text/csv;charset=utf-8"});
  const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="770-quadratura-f24.csv";a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000);
 });
