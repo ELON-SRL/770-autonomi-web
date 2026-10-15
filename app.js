@@ -1,5 +1,6 @@
 "use strict";
 import {link,unlink,syncLinks} from "./manual_reconciliation.js?v=20261014-year";
+import {parseCuAll,reconcileNames,normalizeRecipient} from "./cu_reader.js";
 import {cloneF24,usableF24,validateF24Change,parseEuros} from "./movement_edits.js";
 import {newLedgerState,activeLedger,ledgerSummary,validateLedger,inLedgerYear} from "./ledger_tree.js?v=20261014-year";
 import {paymentGroupSummary} from "./f24_groups.js";
@@ -153,8 +154,10 @@ $("check").addEventListener("click",async()=>{
  if(!ledgerFile||!cuFile){$("status").textContent="Seleziona almeno il listato ritenute e il brogliaccio CU.";return}
  $("check").disabled=true;$("status").textContent="Lettura PDF in corso…";
  try{
-  const [ledgerLines,cuLines]=await Promise.all([pdfLines(ledgerFile),pdfLines(cuFile,true)]);
-  const ledger=parseLedger(ledgerLines),cu=parseCu(cuLines);
+  const [ledgerLines,cuLines]=await Promise.all([pdfLines(ledgerFile),pdfLines(cuFile)]);
+  const rawLedger=parseLedger(ledgerLines),cu=parseCuAll(cuLines);
+  const names=reconcileNames(rawLedger,cu);
+  const ledger=rawLedger.map(row=>({...row,name:names.resolved.get(normalizeRecipient(row.name))||normalizeRecipient(row.name),originalName:row.name}));
   const details={Gestionale:identifyDetailed(ledgerLines),CU:identifyDetailed(cuLines)};
   const identityNotes=[];
   for(const [name,found] of Object.entries(details)){
@@ -169,7 +172,7 @@ $("check").addEventListener("click",async()=>{
   console.info("770 import diagnostica (senza nominativi)",{righeGestionale:ledger.length,righeCU:cu.length,righeTestoGestionale:ledgerLines.length,righeTestoCU:cuLines.length});
   if(!ledger.length||!cu.length)throw new Error(`Formato PDF non riconosciuto (movimenti: ${ledger.length}; CU: ${cu.length}). Serve adattare il lettore al testo estratto; nessun dato è stato riconciliato.`);
   ledgerState=newLedgerState(ledger);ledgerRows=activeLedger(ledgerState,$("year").value);f24Rows=[];f24Manual=[];interestOverrides.clear();original=aggregate(ledger,cu);overrides.clear();$("review").checked=false;$("phase2").hidden=false;
-  $("status").textContent=`Acquisite ${ledger.length} righe gestionali e ${cu.length} righe CU. Verifica i totali prima di confermare.`;
+  $("status").textContent=`Acquisite ${ledger.length} righe gestionali (${display(ledger.reduce((s,r)=>s+r.amount,0))} €) e ${cu.length} righe CU (${display(cu.reduce((s,r)=>s+r.amount,0))} €). Nominativi senza corrispondenza certa: ${names.unmatched.length}. Verifica i totali prima di confermare.`;
   render();renderLedgerTree();f24Render();$("stSection").hidden=false;
   if($("f24").files[0])$("readf24").click();
  }catch(err){$("status").textContent="Importazione non completata: "+err.message}
