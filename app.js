@@ -1,3 +1,4 @@
+import {nextManualSequence,assertUniqueIds} from "./practice_sequences.js";
 import {packPractice,unpackPractice,practiceFilename} from "./practice_storage.js";
 import {recipientInvoiceReport} from "./recipient_report.js";
 import {buildCurrentCuRows,uniqueExportName} from "./export_current.js";
@@ -75,8 +76,10 @@ $("loadPractice").addEventListener("change",async()=>{
   ledgerRows=activeLedger(ledgerState,data.year);
   syncLinks(ledgerState,usableF24([...f24Rows,...f24Manual]));
   editingCu=null;editingF24=null;editingLedger=null;editingSt=null;selectedRecipient=null;
-  ledgerSeq=Math.max(0,...ledgerState.map(x=>Number(String(x.id||"").match(/^(?:added-|adjustment-)(\d+)$/)?.[1]||0)));
-  manualSequence=Math.max(0,...f24Manual.map(x=>Number(String(x.uid||"").match(/^manual-(\d+)$/)?.[1]||0)));
+  assertUniqueIds(ledgerState,"id");
+  assertUniqueIds([...f24Rows,...f24Manual],"uid");
+  ledgerSeq=nextManualSequence(ledgerState);
+  manualSequence=nextManualSequence(f24Manual,["manual-"],"uid");
   $("phase2").hidden=!data.phase2;
   $("stSection").hidden=!stDraft.length;
   $("review").checked=Boolean(data.review);$("f24review").checked=Boolean(data.f24review);
