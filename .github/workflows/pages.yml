@@ -40,6 +40,10 @@ jobs:
         run: |
           set -o pipefail
           node tests/browser_pdf_integration.mjs 2>&1 | tee test-results/pdf-integration.log
+      - name: Real Medicenter Ronchi PDFs browser test
+        run: |
+          set -o pipefail
+          node tests/browser_real_pdfs.mjs 2>&1 | tee test-results/real-pdfs.log
       - name: Publish test result
         if: always()
         run: |
