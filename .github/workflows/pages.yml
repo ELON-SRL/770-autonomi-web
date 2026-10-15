@@ -29,13 +29,17 @@ jobs:
           for test in tests/*.test.mjs; do echo "RUN $test"; node "$test"; done 2>&1 | tee test-results/regression.log
       - name: Install browser test runtime
         run: |
-          npm install --no-save playwright@1.58.2
+          npm install --no-save playwright@1.58.2 pdf-lib@1.17.1
           npx playwright install --with-deps chromium
       - name: Browser smoke test
         run: |
           set -o pipefail
           mkdir -p test-results
           node tests/browser_smoke.mjs 2>&1 | tee test-results/browser.log
+      - name: PDF-to-browser integration test
+        run: |
+          set -o pipefail
+          node tests/browser_pdf_integration.mjs 2>&1 | tee test-results/pdf-integration.log
       - name: Publish test result
         if: always()
         run: |
