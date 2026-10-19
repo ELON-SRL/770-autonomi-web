@@ -561,12 +561,12 @@ function f24Render(){
  const year=$("year").value,rows=reconcile(ledgerRows,usableF24([...f24Rows,...f24Manual]),year);
  for(const r of rows){
   const tr=document.createElement("tr");
-  const status=r.status==="QUADRATO"?"QUADRATO":r.status==="DA_ATTRIBUIRE"?"Versamento senza ritenuta nel periodo":r.status==="NON_VERSATO"?"Ritenuta senza versamento nel periodo":"Differenza da verificare";
-  const values=[r.code,r.month+"/"+r.year,f24Euro(r.expected),f24Euro(r.paid),r.difference===null?status:f24Euro(r.difference)];
+  const status=r.status==="QUADRATO"?"QUADRATO":r.status==="SOLO_F24"?"SOLO F24":r.status==="SOLO_RITENUTE"?"SOLO RITENUTE":"DIFFERENZA";
+  const values=[r.code,r.month+"/"+r.year,f24Euro(r.expected),f24Euro(r.paid),f24Euro(r.difference),status];
   for(const value of values){const td=document.createElement("td");td.textContent=value;tr.append(td)}
-  tr.children[4].className=r.difference===null?"mismatch":r.difference?"mismatch":"match";
+  tr.children[4].className=r.difference?"mismatch":"match";
   const linked=ledgerState.filter(x=>!x.excluded&&x.reconciliation&&x.stPeriod===r.month+"/"+r.year&&x.code===r.code);
-  const proposed=!linked.length&&r.status==="CONFRONTABILE"?Math.max(0,r.difference):0;
+  const proposed=!linked.length&&r.status==="DIFFERENZA"?Math.max(0,r.difference):0;
   const interest=interestOverrides.has(r.key)?interestOverrides.get(r.key):proposed;
   const cell=document.createElement("td"),input=document.createElement("input");
   input.type="number";input.step="0.01";input.min="0";input.value=(interest/100).toFixed(2);
@@ -670,8 +670,8 @@ function f24Render(){
  }
  $("exportf24").disabled=!rows.length;
  const total=rows.reduce((s,r)=>s+(r.difference??0),0);
- const unassigned=rows.filter(r=>r.status==="DA_ATTRIBUIRE").length;
- const unpaid=rows.filter(r=>r.status==="NON_VERSATO").length;
+ const unassigned=rows.filter(r=>r.status==="SOLO_F24").length;
+ const unpaid=rows.filter(r=>r.status==="SOLO_RITENUTE").length;
  const previous=$("f24status").textContent.split(" · Periodi:")[0];
  $("f24status").textContent=previous+" · Periodi: "+rows.length+" · Versamenti senza ritenuta: "+unassigned+" · Periodi senza versamento: "+unpaid+" · Differenza sui soli periodi confrontabili: "+f24Euro(total)+" €";
 }
