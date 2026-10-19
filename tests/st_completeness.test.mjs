@@ -35,7 +35,7 @@ const split=buildStDraft([{code:'1040',date:'20/03/25',amount:30000}],[
  {code:'8948',date:'16/06/2025',month:'03',year:'2025',debit:250}
 ],2025);
 assert.equal(split.rows.length,2);
-assert.equal(split.rows.reduce((s,r)=>s+r.point2,0),30000);
+assert.ok(split.rows.every(r=>r.point2===null)); // 30075 paid vs 30000 withheld: do not invent allocation
 assert.equal(split.rows.find(r=>r.point9).point8,0);
-assert.equal(split.rows.find(r=>r.point9).point2,20000);
-assert.equal(split.rows.find(r=>!r.point9).point2,10000);
+assert.equal(split.rows.find(r=>r.point9).point2,null);
+assert.equal(split.rows.find(r=>!r.point9).point2,null);
