@@ -1,0 +1,16 @@
+import assert from "node:assert/strict";
+import {reconcile} from "../f24_ade.js";
+const ledger=[{code:"1040",date:"01/07/25",amount:10000},{code:"1040",date:"01/07/25",amount:10926},{code:"1040",date:"01/08/25",amount:56137}];
+const payments=[{code:"1040",month:"07",year:"2025",date:"16/08/2025",debit:10000},{code:"1040",month:"07",year:"2025",date:"20/08/2025",debit:10926},{code:"1040",month:"08",year:"2025",date:"16/09/2025",debit:56137}];
+let result=reconcile(ledger,payments,"2025");
+assert.equal(result.length,2);
+assert.ok(result.every(r=>r.status==="QUADRATO"&&r.difference===0));
+assert.equal(result.find(r=>r.month==="07").payments.length,2);
+payments[1].debit=10925;
+result=reconcile(ledger,payments,"2025");
+assert.equal(result.find(r=>r.month==="07").status,"CONFRONTABILE");
+assert.equal(result.find(r=>r.month==="07").difference,-1);
+payments.push({code:"1040",month:"09",year:"2025",date:"16/10/2025",debit:1000});
+result=reconcile(ledger,payments,"2025");
+assert.equal(result.find(r=>r.month==="09").status,"DA_ATTRIBUIRE");
+console.log("Automatic 1040 period aggregation and square checks passed");
