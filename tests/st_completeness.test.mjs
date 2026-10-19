@@ -12,7 +12,7 @@ assert.equal(draft.rows.length,3);
 assert.equal(draft.rows.reduce((s,r)=>s+r.point2,0),87063);
 assert.equal(draft.rows.reduce((s,r)=>s+r.point7,0),77105);
 const may=draft.rows.find(r=>r.point1==='05/2025');
-assert.equal(may.point2,56137);assert.equal(may.point7,56177);assert.equal(may.point8,40);assert.equal(may.point9,true);
+assert.equal(may.point2,56137);assert.equal(may.point7,56177);assert.equal(may.point8,0);assert.equal(may.point9,true);
 assert.equal(draft.rows.find(r=>r.point1==='08/2025').point2,20926);
 assert.equal(draft.rows.find(r=>r.point1==='08/2025').point8,0);
 assert.equal(draft.rows.find(r=>r.point1==='12/2025').point2,10000);
@@ -25,7 +25,7 @@ const excluded=buildStDraft(ledger,payments.map(p=>p.code==='8948'?{...p,exclude
 assert.equal(excluded.rows.find(r=>r.point1==='05/2025').point9,false);
 const ambiguous=buildStDraft([{code:'1040',date:'20/05/25',amount:57000}],payments,'2025');
 assert.equal(ambiguous.rows.find(r=>r.point1==='05/2025').point8,0);
-assert.ok(ambiguous.warnings.some(w=>w.includes('manualmente')));
+assert.ok(ambiguous.warnings.some(w=>w.includes("interessi non deducibili")));
 const fullDate=buildStDraft([{code:'1040',date:'2/5/2025',amount:100}],[],2025);assert.equal(fullDate.rows[0].point2,100);
 console.log('ST complete withholdings, discrepancy, unpaid and ravvedimento passed');
 
@@ -36,6 +36,6 @@ const split=buildStDraft([{code:'1040',date:'20/03/25',amount:30000}],[
 ],2025);
 assert.equal(split.rows.length,2);
 assert.equal(split.rows.reduce((s,r)=>s+r.point2,0),30000);
-assert.equal(split.rows.find(r=>r.point9).point8,75);
+assert.equal(split.rows.find(r=>r.point9).point8,0);
 assert.equal(split.rows.find(r=>r.point9).point2,20000);
 assert.equal(split.rows.find(r=>!r.point9).point2,10000);
