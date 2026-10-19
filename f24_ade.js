@@ -64,7 +64,7 @@ export function expectedByPeriod(ledger,year){
 export function reconcile(ledger,payments,year){
  const expected=expectedByPeriod(ledger,year),paid=new Map(),detail=new Map();
  for(const row of payments){
-  if(row.year!==String(year)||!row.month||!ledger.some(item=>item.code===row.code))continue;
+  if(String(row.year)!==String(year)||!row.month||!/^\d{4}$/.test(String(row.code)))continue;
   const key=[row.code,row.month,row.year].join("|");
   paid.set(key,(paid.get(key)||0)+row.debit);
   if(!detail.has(key))detail.set(key,[]);
@@ -73,7 +73,7 @@ export function reconcile(ledger,payments,year){
  return [...new Set([...expected.keys(),...paid.keys()])].sort().map(key=>{
   const [code,month,refYear]=key.split("|");
   const hasExpected=expected.has(key),hasPayment=paid.has(key);
-  const status=hasExpected&&hasPayment&&paid.get(key)===expected.get(key)?"QUADRATO":!hasExpected&&hasPayment?"DA_ATTRIBUIRE":hasExpected&&!hasPayment?"NON_VERSATO":"CONFRONTABILE";
-  return {key,code,month,year:refYear,expected:expected.get(key)||0,paid:paid.get(key)||0,difference:hasExpected&&hasPayment?(paid.get(key)||0)-(expected.get(key)||0):null,status,payments:detail.get(key)||[]};
+  const status=hasExpected&&hasPayment&&paid.get(key)===expected.get(key)?"QUADRATO":!hasExpected&&hasPayment?"SOLO_F24":hasExpected&&!hasPayment?"SOLO_RITENUTE":"DIFFERENZA";
+  return {key,code,month,year:refYear,expected:expected.get(key)||0,paid:paid.get(key)||0,difference:(paid.get(key)||0)-(expected.get(key)||0),status,payments:detail.get(key)||[]};
  });
 }
