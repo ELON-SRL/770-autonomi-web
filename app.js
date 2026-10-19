@@ -561,7 +561,7 @@ function f24Render(){
  const year=$("year").value,rows=reconcile(ledgerRows,usableF24([...f24Rows,...f24Manual]),year);
  for(const r of rows){
   const tr=document.createElement("tr");
-  const status=r.status==="DA_ATTRIBUIRE"?"F24 da attribuire":r.status==="NON_VERSATO"?"Ritenuta non versata":r.difference===0?"Quadrato":"Differenza da verificare";
+  const status=r.status==="QUADRATO"?"QUADRATO":r.status==="DA_ATTRIBUIRE"?"Versamento senza ritenuta nel periodo":r.status==="NON_VERSATO"?"Ritenuta senza versamento nel periodo":"Differenza da verificare";
   const values=[r.code,r.month+"/"+r.year,f24Euro(r.expected),f24Euro(r.paid),r.difference===null?status:f24Euro(r.difference)];
   for(const value of values){const td=document.createElement("td");td.textContent=value;tr.append(td)}
   tr.children[4].className=r.difference===null?"mismatch":r.difference?"mismatch":"match";
@@ -590,6 +590,10 @@ function f24Render(){
   detail.append(btn);
   tr.append(detail);
   const corrections=document.createElement("td");
+  if(r.status==="QUADRATO"){
+   corrections.textContent="Quadrato automaticamente · nessuna attribuzione necessaria";
+   tr.append(corrections);tbody.append(tr);continue;
+  }
   const matching=ledgerState.filter(x=>!x.excluded&&inLedgerYear(x,year)&&x.code===r.code&&(x.stPeriod||x.period)===r.month+"/"+r.year);
   if(matching.length){
    const edit=document.createElement("button");edit.textContent="Modifica ritenuta";
@@ -670,7 +674,7 @@ function f24Render(){
  const unassigned=rows.filter(r=>r.status==="DA_ATTRIBUIRE").length;
  const unpaid=rows.filter(r=>r.status==="NON_VERSATO").length;
  const previous=$("f24status").textContent.split(" · Periodi:")[0];
- $("f24status").textContent=previous+" · Periodi: "+rows.length+" · F24 da attribuire: "+unassigned+" · Periodi non versati: "+unpaid+" · Differenza sui soli periodi confrontabili: "+f24Euro(total)+" €";
+ $("f24status").textContent=previous+" · Periodi: "+rows.length+" · Versamenti senza ritenuta: "+unassigned+" · Periodi senza versamento: "+unpaid+" · Differenza sui soli periodi confrontabili: "+f24Euro(total)+" €";
 }
 $("readf24").addEventListener("click",async()=>{
  const file=$("f24").files[0];
