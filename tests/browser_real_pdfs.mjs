@@ -100,6 +100,25 @@ try{
   assert.equal(snapshot.taxpayer,"01184970315");
   assert.equal(snapshot.ledgerState.length,380);
   assert.equal(snapshot.f24Rows.length,72);
+  // Independent, frozen month-by-month reference for tax code 1040 / reference year 2025.
+  // Do not group by payment date: the reference year belongs to the F24 row.
+  const reference={"01":1538000,"02":1647500,"03":1727500,"04":1734571,
+   "05":1887000,"06":1248738,"07":1465335,"08":1243495,
+   "09":933873,"10":1274732,"11":1823078,"12":1603043};
+  const selected=snapshot.f24Rows.filter(x=>String(x.year)==="2025"&&String(x.code)==="1040"&&!x.excluded);
+  assert.equal(selected.length,40,"2025 F24 1040 movement count mismatch");
+  const grouped=Object.fromEntries(Object.keys(reference).map(m=>[m,0]));
+  for(const row of selected){
+   assert.ok(row.month in reference,"Invalid 2025 reference month: "+row.month);
+   grouped[row.month]+=row.debit;
+  }
+  for(const [month,expected] of Object.entries(reference))
+   assert.equal(grouped[month],expected,"Real PDF 1040/2025 incorrect attribution in month "+month);
+  assert.equal(selected.reduce((sum,row)=>sum+row.debit,0),18126865,"Real PDF 1040/2025 total incorrect");
+  const others=snapshot.f24Rows.filter(x=>String(x.year)!=="2025");
+  assert.equal(selected.some(x=>String(x.year)!=="2025"),false,"Foreign year mixed into 2025");
+  console.log("F24 1040 reference year 2025 verified against frozen monthly amounts; other years:",others.length);
+
   assert.equal(snapshot.stDraft.length,stRows);
   assert.ok(snapshot.ledgerState.some(x=>x.document&&x.invoiceDate&&Number.isInteger(x.invoiceGross)&&Number.isInteger(x.paymentAmount)));
   await page.reload({waitUntil:"domcontentloaded"});
