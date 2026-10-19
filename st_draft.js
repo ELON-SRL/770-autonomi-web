@@ -55,27 +55,40 @@ export function buildStDraft(ledger,payments,year,options={}){
   if(rav.length>1)warnings.push("Ravvedimenti "+g.month+"/"+y+": più date, attribuire manualmente gli interessi");
   for(const r of rav)warnings.push("Ravvedimento proposto "+r.month+"/"+y+" del "+r.date+": verificare punti 8 e 9; sanzione 8948 esclusa dallo ST");
  }
+ const allocations=new Map();
+ const byPeriod=new Map();
+ for(const g of groups.values()){
+  const k=[g.code,g.month,y].join("|");
+  if(!byPeriod.has(k))byPeriod.set(k,[]);
+  byPeriod.get(k).push(g);
+ }
+ for(const [key,items] of byPeriod){
+  const total=expected.get(key)||0;
+  const ordered=[...items].sort((a,b)=>{
+   const da=a.date.split("/").reverse().join(""),db=b.date.split("/").reverse().join("");
+   return da.localeCompare(db)||a.key.localeCompare(b.key);
+  });
+  let remaining=total;
+  for(let i=0;i<ordered.length;i++){
+   const g=ordered[i];
+   const allocation=i===ordered.length-1?remaining:Math.min(remaining,Math.max(0,g.amount-g.interest));
+   allocations.set(g.key,allocation);
+   remaining-=allocation;
+  }
+  const paid=items.reduce((sum,g)=>sum+g.amount-g.interest,0);
+  if(paid!==total)warnings.push("Differenza "+key+": ritenute "+(total/100).toFixed(2)+" euro, versamenti al netto di interessi dichiarati "+(paid/100).toFixed(2)+" euro; ST2 ripartito automaticamente, controllabile e modificabile");
+ }
  for(const g of groups.values()){
   const periodKey=[g.code,g.month,y].join("|");
-  const matching=[...groups.values()].filter(x=>[x.code,x.month,y].join("|")===periodKey);
-  const totalExpected=expected.get(periodKey);
-  const totalPrincipal=matching.reduce((sum,x)=>sum+x.amount-x.interest,0);
-  // Single date: all actual withholdings, even with a discrepancy or interest.
-  // Multiple dates: split by principal only when the entire period balances.
-  // A period's withholding cannot be arbitrarily distributed among payment dates.
-  // Only when the sum of principal payments exactly matches withholding may
-  // the matching payment amount be used as an ST2 proposal per date.
-  // Otherwise leave ST2 unallocated and preserve the total in warnings.
-  const proposed=totalExpected===undefined?null:matching.length===1?totalExpected:
-   totalExpected===totalPrincipal?g.amount-g.interest:null;
-  if(proposed===null&&totalExpected!==undefined&&!warnings.some(w=>w.startsWith("Ritenute da attribuire "+periodKey+":")))
-   warnings.push("Ritenute da attribuire "+periodKey+": totale operato "+(totalExpected/100).toFixed(2)+" euro; più date non quadrate, compilare il punto 2 senza duplicare il totale");
+  const matching=byPeriod.get(periodKey);
+  const totalExpected=expected.get(periodKey)||0;
+  const proposed=allocations.get(g.key)??0;
   rows.push({
    id:g.key,point1:g.month+"/"+y,point2:proposed,point6:0,point7:g.amount,
    point8:g.interest,point9:g.ravvedimento||g.interest>0,point10:g.notes,point11:g.code,point14:g.date,point15:"",point16:0,
    paymentCount:g.payments.length,origin:"F24",reviewed:false,
    issue:g.ravvedimento?"Ravvedimento proposto da sanzione 8948: verificare interessi e casella 9":
-    proposed===null?"Nessuna ritenuta nel periodo: verificare ST2":matching.length>1?"ST2 proposto solo su pagamenti che quadrano: verificare":"Ritenute riportate dal gestionale; verificare differenze e versamento"
+    matching.length>1?"ST2 ripartito automaticamente per differenza; modificabile":"Ritenute riportate dal gestionale; verificare differenze e versamento"
   });
  }
  for(const [key,total] of expected){
