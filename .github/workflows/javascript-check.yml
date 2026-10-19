@@ -38,4 +38,5 @@ jobs:
           node tests/invoice_roundtrip.test.mjs
           node tests/practice_storage.test.mjs
           node tests/practice_sequences.test.mjs
+          node tests/automatic_period_square.test.mjs
           node tests/f24_2025_totals.test.mjs
