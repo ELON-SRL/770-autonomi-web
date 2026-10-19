@@ -566,12 +566,12 @@ function f24Render(){
   for(const value of values){const td=document.createElement("td");td.textContent=value;tr.append(td)}
   tr.children[4].className=r.difference?"mismatch":"match";
   const linked=ledgerState.filter(x=>!x.excluded&&x.reconciliation&&x.stPeriod===r.month+"/"+r.year&&x.code===r.code);
-  const proposed=!linked.length&&r.status==="DIFFERENZA"?Math.max(0,r.difference):0;
+  const proposed=0; // Never infer interest from an F24/withholding difference.
   const interest=interestOverrides.has(r.key)?interestOverrides.get(r.key):proposed;
   const cell=document.createElement("td"),input=document.createElement("input");
   input.type="number";input.step="0.01";input.min="0";input.value=(interest/100).toFixed(2);
-  input.disabled=r.status!=="CONFRONTABILE";
-  input.title=r.status==="CONFRONTABILE"?"Interessi ipotizzati da verificare":"Non proporre interessi su movimenti non abbinati";
+  input.disabled=false;
+  input.title="Solo interessi documentati e verificati; mai dedotti dalla differenza F24";
   input.addEventListener("change",()=>{
    const raw=input.value.trim();
    if(!/^[0-9]+(?:[.][0-9]{1,2})?$/.test(raw)){alert("Importo interessi non valido");return}
