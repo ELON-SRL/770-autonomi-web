@@ -591,8 +591,7 @@ function f24Render(){
   tr.append(detail);
   const corrections=document.createElement("td");
   if(r.status==="QUADRATO"){
-   corrections.textContent="Quadrato automaticamente · nessuna attribuzione necessaria";
-   tr.append(corrections);tbody.append(tr);continue;
+   const note=document.createElement("span");note.textContent="Quadrato automaticamente · nessuna attribuzione necessaria · ";corrections.append(note);
   }
   const matching=ledgerState.filter(x=>!x.excluded&&inLedgerYear(x,year)&&x.code===r.code&&(x.stPeriod||x.period)===r.month+"/"+r.year);
   if(matching.length){
