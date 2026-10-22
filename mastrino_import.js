@@ -8,6 +8,7 @@ export function parseMastrino(lines,year="2025"){
   const m=line.match(datePattern);if(!m)continue;
   const [_,date,type,rest]=m;
   if(type==="FR"){
+   if(!date.endsWith("/"+year.slice(-2)))continue;
    const doc=rest.match(/^\s*(\d+)\s+(\d{2}\/\d{2}\/\d{2})\s+FATT\.\s*RICEV\./);
    if(!doc)continue;
    const after=rest.slice(doc[0].length),amounts=[...after.matchAll(euro)].map(x=>amount(x[0]));
@@ -15,7 +16,7 @@ export function parseMastrino(lines,year="2025"){
    const key=doc[1]+"|"+doc[2];
    if(!invoices.has(key))invoices.set(key,{number:doc[1],invoiceDate:doc[2],entries:[]});
    invoices.get(key).entries.push(amounts[0]);
-  }else if(date.endsWith("/"+year.slice(-2))){
+  }else if(type==="PG"&&date.endsWith("/"+year.slice(-2))){
    const a=[...rest.matchAll(euro)];
    if(a.length)payments.push({date,amount:amount(a[0][0]),description:rest.slice(0,a[0].index).trim()});
   }
