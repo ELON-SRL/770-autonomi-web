@@ -72,6 +72,8 @@ try{
   await page.locator('#movementDialog input[name="name"]').fill("NUOVO PERCIPIENTE");
   await page.locator('#movementDialog input[name="period"]').fill("08/2025");
   await page.locator('#movementDialog input[name="amount"]').fill("100,00");
+  await page.locator('#movementDialog input[name="document"]').fill("TEST-001");
+  await page.locator('#movementDialog input[name="invoiceDate"]').fill("20/08/25");
   await page.locator("#movementForm").getByRole("button",{name:"Conferma e aggiungi"}).click();
   assert.equal(await page.locator("#movementDialog").isVisible(),false,"Ledger modal must close");
   assert.match(await page.locator("#results").innerText(),/NUOVO PERCIPIENTE/);
