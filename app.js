@@ -910,6 +910,34 @@ $("exportMovements").addEventListener("click",()=>{
 });
 
 let mastrinoRows=[];
+let mastrinoPaymentEdits=[];
+function renderMastrinoPayments(){
+ const body=$("mastrinoPayments");body.replaceChildren();
+ for(const payment of mastrinoPaymentEdits){
+  const tr=document.createElement("tr");
+  for(const key of ["date","amount","description","invoiceRef"]){
+   const td=document.createElement("td");
+   const input=document.createElement("input");input.type="text";input.className="inline-field";
+   input.value=key==="amount"?f24Euro(payment.amount):String(payment[key]||"");
+   input.setAttribute("aria-label",({date:"Data pagamento",amount:"Importo pagamento",description:"Descrizione",invoiceRef:"Fattura collegata"})[key]);
+   input.addEventListener("change",()=>{
+    if(key==="amount"){
+     const value=parseEuros(input.value);
+     if(!Number.isSafeInteger(value)||value<=0){input.value=f24Euro(payment.amount);$("mastrinoStatus").textContent="Importo non valido";return}
+     payment.amount=value;
+    }else if(key==="date"){
+     if(!/^\\d{2}\\/\\d{2}\\/2025$/.test(input.value)&&!/^\\d{2}\\/\\d{2}\\/25$/.test(input.value)){$("mastrinoStatus").textContent="Data pagamento non valida (anno 2025)";input.value=payment.date;return}
+     payment.date=input.value;
+    }else payment[key]=input.value.trim();
+    payment.edited=true;
+    $("mastrinoStatus").textContent="Pagamento modificato nell’anteprima. Nessuna ritenuta inserita automaticamente.";
+   });
+   td.append(input);tr.append(td);
+  }
+  const td=document.createElement("td");td.textContent=payment.invoiceRef?"Collegamento indicato manualmente":"Da riconciliare";tr.append(td);body.append(tr);
+ }
+}
+
 $("mastrinoAnalyze").addEventListener("click",async()=>{
  const file=$("mastrinoFile").files[0];
  const recipient=$("mastrinoRecipient").value.trim()||"QUINTO MICHELE";
@@ -921,16 +949,8 @@ $("mastrinoAnalyze").addEventListener("click",async()=>{
   const parsed=parseMastrino(lines,$("year").value);
   if(!parsed.candidates.length)throw Error("Nessuna coppia fattura/ritenuta riconosciuta nel PDF. Non importare.");
   mastrinoRows=compareMastrino(parsed,ledgerState,recipient);
-  const paymentsBody=$("mastrinoPayments");paymentsBody.replaceChildren();
-  for(const payment of parsed.payments){
-   const matches=mastrinoRows.filter(r=>r.net===payment.amount);
-   const tr=document.createElement("tr");
-   const status=matches.length===1?"Importo compatibile con fattura "+matches[0].number+" (non confermato)":matches.length>1?"Più fatture compatibili: verificare":"Isolato / senza abbinamento";
-   for(const value of [payment.date,f24Euro(payment.amount),payment.description,status]){
-    const td=document.createElement("td");td.textContent=value;tr.append(td);
-   }
-   paymentsBody.append(tr);
-  }
+  mastrinoPaymentEdits=parsed.payments.map(p=>({...p,invoiceRef:"",edited:false}));
+  renderMastrinoPayments();
   const body=$("mastrinoResults");body.replaceChildren();
   for(const item of mastrinoRows){
    const tr=document.createElement("tr");
