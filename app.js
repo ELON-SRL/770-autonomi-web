@@ -926,7 +926,7 @@ function renderMastrinoPayments(){
      if(!Number.isSafeInteger(value)||value<=0){input.value=f24Euro(payment.amount);$("mastrinoStatus").textContent="Importo non valido";return}
      payment.amount=value;
     }else if(key==="date"){
-     if(!/^\\d{2}\\/\\d{2}\\/2025$/.test(input.value)&&!/^\\d{2}\\/\\d{2}\\/25$/.test(input.value)){$("mastrinoStatus").textContent="Data pagamento non valida (anno 2025)";input.value=payment.date;return}
+     if(!/^\d{2}\/\d{2}\/2025$/.test(input.value)&&!/^\d{2}\/\d{2}\/25$/.test(input.value)){$("mastrinoStatus").textContent="Data pagamento non valida (anno 2025)";input.value=payment.date;return}
      payment.date=input.value;
     }else payment[key]=input.value.trim();
     payment.edited=true;
