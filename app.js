@@ -1,4 +1,3 @@
-import {parseMastrino,compareMastrino} from "./mastrino_import.js";
 import {nextManualSequence,assertUniqueIds} from "./practice_sequences.js";
 import {packPractice,unpackPractice,practiceFilename} from "./practice_storage.js";
 import {recipientInvoiceReport} from "./recipient_report.js";
@@ -504,7 +503,7 @@ function openMovementDialog(mode){
  fields.replaceChildren();$("movementDialogError").textContent="";
  $("movementDialogTitle").textContent=mode==="ledger"?"Aggiungi ritenuta gestionale":"Aggiungi versamento F24";
  const defs=mode==="ledger"?
-  [["name","Percipiente",""],["code","Codice tributo","1040"],["period","Periodo MM/AAAA","01/"+$("year").value],["amount","Ritenuta operata (€)","0,00"]]:
+  [["movementType","Tipo movimento (FATTURA o PREGRESSO)","FATTURA"],["name","Percipiente",""],["code","Codice tributo","1040"],["period","Periodo MM/AAAA","01/"+$("year").value],["amount","Ritenuta operata (€)","0,00"],["document","Numero fattura",""],["invoiceDate","Data fattura GG/MM/AA",""],["invoiceGross","Compenso / importo fattura (€)",""],["invoiceWithholding","Ritenuta fattura (€)",""],["paymentDate","Data pagamento GG/MM/AA",""],["paymentAmount","Importo pagato (€)",""]]:
   [["date","Data versamento GG/MM/AAAA",""],["code","Codice tributo","1040"],["month","Mese di riferimento MM","01"],["year","Anno di riferimento",$("year").value],["debit","Importo a debito (€)","0,00"],["credit","Importo a credito (€)","0,00"]];
  for(const [key,label,value] of defs){
   const wrap=document.createElement("label");wrap.textContent=label;
@@ -535,6 +534,15 @@ $("movementForm").addEventListener("submit",event=>{
  if(movementMode==="ledger"){
   const r={id:"added-"+(ledgerSeq+1),source:null,name:normalize(get("name")),code:get("code"),
    period:get("period"),amount:parseEuros(get("amount")),excluded:false,edited:true};
+  const movementType=get("movementType").toUpperCase();
+  if(!["FATTURA","PREGRESSO"].includes(movementType)){$("movementDialogError").textContent="Tipo movimento: FATTURA oppure PREGRESSO";return}
+  r.movementType=movementType;
+  r.document=get("document");r.invoiceDate=get("invoiceDate");r.paymentDate=get("paymentDate");
+  for(const [key,label] of [["invoiceGross","Compenso"],["invoiceWithholding","Ritenuta fattura"],["paymentAmount","Pagamento"]]){
+   if(get(key)){const val=parseEuros(get(key));if(!Number.isSafeInteger(val)||val<0){$("movementDialogError").textContent=label+" non valido";return}r[key]=val}
+  }
+  if(movementType==="FATTURA"&&(!r.document||!r.invoiceDate)){$("movementDialogError").textContent="Per FATTURA inserisci numero e data del documento";return}
+  if(movementType==="PREGRESSO"&&(!r.paymentDate||!r.paymentAmount)){$("movementDialogError").textContent="Per PREGRESSO indica data e importo del pagamento";return}
   const errors=validateLedger(r);
   if(errors.length){$("movementDialogError").textContent="Controlla: "+errors.join(", ");return}
   ledgerSeq++;ledgerState.push(r);editingLedger=null;
@@ -907,79 +915,4 @@ $("exportMovements").addEventListener("click",()=>{
  });
  const blob=new Blob(["\ufeff"+[header.map(safe).join(";"),...data].join("\r\n")],{type:"text/csv;charset=utf-8"});
  const link=document.createElement("a");link.href=URL.createObjectURL(blob);link.download=uniqueExportName("770-movimenti-F24-rettifiche",exportRevision);link.click();setTimeout(()=>URL.revokeObjectURL(link.href),1000);
-});
-
-let mastrinoRows=[];
-let mastrinoPaymentEdits=[];
-function renderMastrinoPayments(){
- const body=$("mastrinoPayments");body.replaceChildren();
- for(const payment of mastrinoPaymentEdits){
-  const tr=document.createElement("tr");
-  for(const key of ["date","amount","description","invoiceRef"]){
-   const td=document.createElement("td");
-   const input=document.createElement("input");input.type="text";input.className="inline-field";
-   input.value=key==="amount"?f24Euro(payment.amount):String(payment[key]||"");
-   input.setAttribute("aria-label",({date:"Data pagamento",amount:"Importo pagamento",description:"Descrizione",invoiceRef:"Fattura collegata"})[key]);
-   input.addEventListener("change",()=>{
-    if(key==="amount"){
-     const value=parseEuros(input.value);
-     if(!Number.isSafeInteger(value)||value<=0){input.value=f24Euro(payment.amount);$("mastrinoStatus").textContent="Importo non valido";return}
-     payment.amount=value;
-    }else if(key==="date"){
-     if(!/^\d{2}\/\d{2}\/2025$/.test(input.value)&&!/^\d{2}\/\d{2}\/25$/.test(input.value)){$("mastrinoStatus").textContent="Data pagamento non valida (anno 2025)";input.value=payment.date;return}
-     payment.date=input.value;
-    }else payment[key]=input.value.trim();
-    payment.edited=true;
-    $("mastrinoStatus").textContent="Pagamento modificato nell’anteprima. Nessuna ritenuta inserita automaticamente.";
-   });
-   td.append(input);tr.append(td);
-  }
-  const td=document.createElement("td");td.textContent=payment.invoiceRef?"Collegamento indicato manualmente":"Da riconciliare";tr.append(td);body.append(tr);
- }
-}
-
-$("mastrinoAnalyze").addEventListener("click",async()=>{
- const file=$("mastrinoFile").files[0];
- const recipient=$("mastrinoRecipient").value.trim()||"QUINTO MICHELE";
- if(!file){$("mastrinoStatus").textContent="PDF non selezionato: premi Sfoglia nel campo Mastrino PDF e scegli il file dal computer.";return}
- $("mastrinoStatus").textContent="Lettura di "+file.name+" in corso...";
- $("mastrinoAnalyze").disabled=true;
- try{
-  const lines=await pdfLines(file);
-  const parsed=parseMastrino(lines,$("year").value);
-  mastrinoRows=compareMastrino(parsed,ledgerState,recipient);
-  mastrinoPaymentEdits=parsed.payments.map(p=>({...p,invoiceRef:"",edited:false}));
-  renderMastrinoPayments();
-  const body=$("mastrinoResults");body.replaceChildren();
-  for(const item of mastrinoRows){
-   const tr=document.createElement("tr");
-   const td=document.createElement("td"),check=document.createElement("input");check.type="checkbox";check.className="mastrinoCheck";
-   check.disabled=item.status!=="candidate";td.append(check);tr.append(td);
-   for(const value of [item.number,item.invoiceDate,f24Euro(item.gross),f24Euro(item.withholding),item.payments.map(p=>p.date).join(", ")||"Non individuato",({present:"Già presente",uncertain:"Possibile duplicato",candidate:"Da verificare",unmatched:"Pagamento non identificato"})[item.status]]){
-    const cell=document.createElement("td");cell.textContent=value;tr.append(cell);
-   }
-   body.append(tr);
-  }
-  $("mastrinoImport").disabled=!mastrinoRows.some(r=>r.status==="candidate");
-  $("mastrinoStatus").textContent=mastrinoRows.length+" fatture 2025 e "+mastrinoPaymentEdits.length+" pagamenti 2025 rilevati. Pagamenti senza fattura sempre visibili; non importare senza verifica.";
- }catch(e){$("mastrinoStatus").textContent="Lettura mastrino non riuscita: "+e.message}
- finally{$("mastrinoAnalyze").disabled=false}
-});
-$("mastrinoImport").addEventListener("click",()=>{
- const selected=[...$("mastrinoResults").querySelectorAll("tr")].flatMap((tr,i)=>tr.querySelector("input")?.checked?[mastrinoRows[i]]:[]);
- if(!selected.length)return;
- if(!confirm("Importare "+selected.length+" ritenute? Verifica che ogni pagamento appartenga alla fattura: le coincidenze di importo non sono prova definitiva."))return;
- let count=0;
- for(const r of selected){
-  const recipient=normalize($("mastrinoRecipient").value);
-  if(ledgerState.some(x=>!x.excluded&&normalize(x.name)===recipient&&x.amount===r.withholding&&(x.document===r.number||!x.document)))continue;
-  const date=r.payments[0].date,period=date.slice(3,5)+"/20"+date.slice(-2);
-  const movement={id:"added-"+(++ledgerSeq),source:null,name:recipient,code:"1040",date,period,amount:r.withholding,document:r.number,invoiceDate:r.invoiceDate,invoiceGross:r.gross,paymentAmount:r.net,origin:"mastrino",excluded:false,edited:true};
-  const errors=validateLedger(movement);
-  if(errors.length)continue;
-  ledgerState.push(movement);count++;
- }
- invalidateTree();
- $("mastrinoStatus").textContent=count+" movimenti aggiunti. Salva subito una nuova copia JSON. Movimenti duplicati o non validi saltati.";
- $("mastrinoImport").disabled=true;
 });
