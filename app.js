@@ -911,11 +911,15 @@ $("exportMovements").addEventListener("click",()=>{
 
 let mastrinoRows=[];
 $("mastrinoAnalyze").addEventListener("click",async()=>{
- const file=$("mastrinoFile").files[0],recipient=$("mastrinoRecipient").value.trim();
- if(!file||!recipient){$("mastrinoStatus").textContent="Seleziona un PDF e indica il percipiente.";return}
+ const file=$("mastrinoFile").files[0];
+ const recipient=$("mastrinoRecipient").value.trim()||"QUINTO MICHELE";
+ if(!file){$("mastrinoStatus").textContent="PDF non selezionato: premi Sfoglia nel campo Mastrino PDF e scegli il file dal computer.";return}
+ $("mastrinoStatus").textContent="Lettura di "+file.name+" in corso...";
+ $("mastrinoAnalyze").disabled=true;
  try{
   const lines=await pdfLines(file);
   const parsed=parseMastrino(lines,$("year").value);
+  if(!parsed.candidates.length)throw Error("Nessuna coppia fattura/ritenuta riconosciuta nel PDF. Non importare.");
   mastrinoRows=compareMastrino(parsed,ledgerState,recipient);
   const body=$("mastrinoResults");body.replaceChildren();
   for(const item of mastrinoRows){
@@ -930,6 +934,7 @@ $("mastrinoAnalyze").addEventListener("click",async()=>{
   $("mastrinoImport").disabled=!mastrinoRows.some(r=>r.status==="candidate");
   $("mastrinoStatus").textContent=mastrinoRows.length+" fatture esaminate. Solo i candidati con pagamento di importo corrispondente sono selezionabili. Verificare prima di confermare.";
  }catch(e){$("mastrinoStatus").textContent="Lettura mastrino non riuscita: "+e.message}
+ finally{$("mastrinoAnalyze").disabled=false}
 });
 $("mastrinoImport").addEventListener("click",()=>{
  const selected=[...$("mastrinoResults").querySelectorAll("tr")].flatMap((tr,i)=>tr.querySelector("input")?.checked?[mastrinoRows[i]]:[]);
