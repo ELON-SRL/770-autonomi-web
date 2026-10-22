@@ -17,3 +17,14 @@ const compared=compareMastrino(parsed,[{name:"QUINTO MICHELE",document:"8",invoi
 assert.equal(compared[0].status,"present");
 assert.equal(compared[1].status,"candidate");
 console.log("Mastrino parser and conservative matching OK");
+
+const mixed=parseMastrino([
+ "20/01/25 PG PAGAMENTO Quinto Ft.2 2.000,00 DIVERSI",
+ "20/02/25 PG 7 20/02/25 PAGAMENTO Quinto Ft.2 2.000,00 DIVERSI",
+ "18/01/26 FR 5 15/01/26 FATT. RICEV. 2.500,00 COMPENSI",
+ "18/01/26 FR 5 15/01/26 FATT. RICEV. 500,00 COMPENSI",
+ "18/01/26 PG PAGAMENTO 2.000,00 DIVERSI"
+],"2025");
+assert.equal(mixed.candidates.length,0,"2026 invoices must not be displayed for 2025");
+assert.equal(mixed.payments.length,2,"both isolated 2025 payments must be displayed");
+assert.equal(mixed.payments.reduce((s,p)=>s+p.amount,0),400000);
