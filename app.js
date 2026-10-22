@@ -921,6 +921,16 @@ $("mastrinoAnalyze").addEventListener("click",async()=>{
   const parsed=parseMastrino(lines,$("year").value);
   if(!parsed.candidates.length)throw Error("Nessuna coppia fattura/ritenuta riconosciuta nel PDF. Non importare.");
   mastrinoRows=compareMastrino(parsed,ledgerState,recipient);
+  const paymentsBody=$("mastrinoPayments");paymentsBody.replaceChildren();
+  for(const payment of parsed.payments){
+   const matches=mastrinoRows.filter(r=>r.net===payment.amount);
+   const tr=document.createElement("tr");
+   const status=matches.length===1?"Importo compatibile con fattura "+matches[0].number+" (non confermato)":matches.length>1?"Più fatture compatibili: verificare":"Isolato / senza abbinamento";
+   for(const value of [payment.date,f24Euro(payment.amount),payment.description,status]){
+    const td=document.createElement("td");td.textContent=value;tr.append(td);
+   }
+   paymentsBody.append(tr);
+  }
   const body=$("mastrinoResults");body.replaceChildren();
   for(const item of mastrinoRows){
    const tr=document.createElement("tr");
