@@ -507,7 +507,11 @@ function openMovementDialog(mode){
   [["date","Data versamento GG/MM/AAAA",""],["code","Codice tributo","1040"],["month","Mese di riferimento MM","01"],["year","Anno di riferimento",$("year").value],["debit","Importo a debito (€)","0,00"],["credit","Importo a credito (€)","0,00"]];
  for(const [key,label,value] of defs){
   const wrap=document.createElement("label");wrap.textContent=label;
-  const input=document.createElement("input");input.name=key;input.value=value;input.required=true;
+  const input=key==="movementType"?document.createElement("select"):document.createElement("input");
+  input.name=key;
+  if(key==="movementType"){for(const type of ["FATTURA","PREGRESSO"]){const option=document.createElement("option");option.value=type;option.textContent=type==="FATTURA"?"Fattura":"Pagamento pregresso";input.append(option)}}
+  else input.value=value;
+  input.required=!(mode==="ledger"&&["document","invoiceDate","invoiceGross","invoiceWithholding","paymentDate","paymentAmount"].includes(key));
   input.setAttribute("aria-label",label);wrap.append(input);fields.append(wrap);
  }
  dialog.showModal();
