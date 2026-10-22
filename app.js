@@ -1,3 +1,4 @@
+import {parseMastrino,compareMastrino} from "./mastrino_import.js";
 import {nextManualSequence,assertUniqueIds} from "./practice_sequences.js";
 import {packPractice,unpackPractice,practiceFilename} from "./practice_storage.js";
 import {recipientInvoiceReport} from "./recipient_report.js";
@@ -906,4 +907,45 @@ $("exportMovements").addEventListener("click",()=>{
  });
  const blob=new Blob(["\ufeff"+[header.map(safe).join(";"),...data].join("\r\n")],{type:"text/csv;charset=utf-8"});
  const link=document.createElement("a");link.href=URL.createObjectURL(blob);link.download=uniqueExportName("770-movimenti-F24-rettifiche",exportRevision);link.click();setTimeout(()=>URL.revokeObjectURL(link.href),1000);
+});
+
+let mastrinoRows=[];
+$("mastrinoAnalyze").addEventListener("click",async()=>{
+ const file=$("mastrinoFile").files[0],recipient=$("mastrinoRecipient").value.trim();
+ if(!file||!recipient){$("mastrinoStatus").textContent="Seleziona un PDF e indica il percipiente.";return}
+ try{
+  const lines=await pdfLines(file);
+  const parsed=parseMastrino(lines,$("year").value);
+  mastrinoRows=compareMastrino(parsed,ledgerState,recipient);
+  const body=$("mastrinoResults");body.replaceChildren();
+  for(const item of mastrinoRows){
+   const tr=document.createElement("tr");
+   const td=document.createElement("td"),check=document.createElement("input");check.type="checkbox";check.className="mastrinoCheck";
+   check.disabled=item.status!=="candidate";td.append(check);tr.append(td);
+   for(const value of [item.number,item.invoiceDate,f24Euro(item.gross),f24Euro(item.withholding),item.payments.map(p=>p.date).join(", ")||"Non individuato",({present:"Già presente",uncertain:"Possibile duplicato",candidate:"Da verificare",unmatched:"Pagamento non identificato"})[item.status]]){
+    const cell=document.createElement("td");cell.textContent=value;tr.append(cell);
+   }
+   body.append(tr);
+  }
+  $("mastrinoImport").disabled=!mastrinoRows.some(r=>r.status==="candidate");
+  $("mastrinoStatus").textContent=mastrinoRows.length+" fatture esaminate. Solo i candidati con pagamento di importo corrispondente sono selezionabili. Verificare prima di confermare.";
+ }catch(e){$("mastrinoStatus").textContent="Lettura mastrino non riuscita: "+e.message}
+});
+$("mastrinoImport").addEventListener("click",()=>{
+ const selected=[...$("mastrinoResults").querySelectorAll("tr")].flatMap((tr,i)=>tr.querySelector("input")?.checked?[mastrinoRows[i]]:[]);
+ if(!selected.length)return;
+ if(!confirm("Importare "+selected.length+" ritenute? Verifica che ogni pagamento appartenga alla fattura: le coincidenze di importo non sono prova definitiva."))return;
+ let count=0;
+ for(const r of selected){
+  const recipient=normalize($("mastrinoRecipient").value);
+  if(ledgerState.some(x=>!x.excluded&&normalize(x.name)===recipient&&x.amount===r.withholding&&(x.document===r.number||!x.document)))continue;
+  const date=r.payments[0].date,period=date.slice(3,5)+"/20"+date.slice(-2);
+  const movement={id:"added-"+(++ledgerSeq),source:null,name:recipient,code:"1040",date,period,amount:r.withholding,document:r.number,invoiceDate:r.invoiceDate,invoiceGross:r.gross,paymentAmount:r.net,origin:"mastrino",excluded:false,edited:true};
+  const errors=validateLedger(movement);
+  if(errors.length)continue;
+  ledgerState.push(movement);count++;
+ }
+ invalidateTree();
+ $("mastrinoStatus").textContent=count+" movimenti aggiunti. Salva subito una nuova copia JSON. Movimenti duplicati o non validi saltati.";
+ $("mastrinoImport").disabled=true;
 });
