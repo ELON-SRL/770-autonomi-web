@@ -947,7 +947,6 @@ $("mastrinoAnalyze").addEventListener("click",async()=>{
  try{
   const lines=await pdfLines(file);
   const parsed=parseMastrino(lines,$("year").value);
-  if(!parsed.candidates.length)throw Error("Nessuna coppia fattura/ritenuta riconosciuta nel PDF. Non importare.");
   mastrinoRows=compareMastrino(parsed,ledgerState,recipient);
   mastrinoPaymentEdits=parsed.payments.map(p=>({...p,invoiceRef:"",edited:false}));
   renderMastrinoPayments();
@@ -962,7 +961,7 @@ $("mastrinoAnalyze").addEventListener("click",async()=>{
    body.append(tr);
   }
   $("mastrinoImport").disabled=!mastrinoRows.some(r=>r.status==="candidate");
-  $("mastrinoStatus").textContent=mastrinoRows.length+" fatture esaminate. Solo i candidati con pagamento di importo corrispondente sono selezionabili. Verificare prima di confermare.";
+  $("mastrinoStatus").textContent=mastrinoRows.length+" fatture 2025 e "+mastrinoPaymentEdits.length+" pagamenti 2025 rilevati. Pagamenti senza fattura sempre visibili; non importare senza verifica.";
  }catch(e){$("mastrinoStatus").textContent="Lettura mastrino non riuscita: "+e.message}
  finally{$("mastrinoAnalyze").disabled=false}
 });
